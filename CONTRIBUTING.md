@@ -25,6 +25,13 @@ pytest -q
 * **Figures.** If you change rendering, re-run the affected examples (`examples/run_all.sh`) and
   look at the outputs. The committed gallery should stay in sync with the code.
 
+## Documentation and website
+
+The docs are Markdown in `docs/`; the website (https://bennettlandman.github.io/pymodelvis/) is
+built from them plus `examples/outputs/` and is published automatically on every push to `main`.
+Preview it with `pip install -r website/requirements.txt && python website/build.py --serve`.
+See [website/README.md](website/README.md).
+
 ## Adding support for an architecture family
 
 Subclass `neural_flow.adapters.Adapter` (`match`, `defaults`, `concepts`) and register it with

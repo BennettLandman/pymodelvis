@@ -1,0 +1,9 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" fill="none">
+  <!-- three feature-map pages, a beam, and a prediction -->
+  <path d="M6 18 L22 12 L22 46 L6 52 Z" fill="#b18cff" fill-opacity=".35" stroke="#b18cff" stroke-width="1.6" stroke-linejoin="round"/>
+  <path d="M14 20 L30 14 L30 44 L14 50 Z" fill="#ff7a8a" fill-opacity=".35" stroke="#ff7a8a" stroke-width="1.6" stroke-linejoin="round"/>
+  <path d="M22 22 L38 16 L38 42 L22 48 Z" fill="#f5b942" fill-opacity=".45" stroke="#f5b942" stroke-width="1.6" stroke-linejoin="round"/>
+  <path d="M31 31 L56 31" stroke="#4fd1e8" stroke-width="2.4" stroke-linecap="round"/>
+  <circle cx="30" cy="31" r="2.6" fill="#4fd1e8"/>
+  <circle cx="56" cy="31" r="4.2" fill="#f5b942"/>
+</svg>

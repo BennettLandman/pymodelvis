@@ -28,3 +28,8 @@ docs/deck/assets/
 
 # Files the Claude desktop app drops into a working folder
 Claude outputs/
+
+# Website build output (python website/build.py)
+website/_src/
+website/_site/
+website/_media_cache/

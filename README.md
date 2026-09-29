@@ -6,10 +6,13 @@ connect, what each stage responds to, and which evidence drives the output. It w
 U-Nets, vision transformers, 3-D medical-imaging networks, and multi-input / multi-head models.
 It can also render movies of how everything changes as the input changes.
 
+**Website and documentation: https://bennettlandman.github.io/pymodelvis/**
+
 [![tests](https://github.com/BennettLandman/pymodelvis/actions/workflows/tests.yml/badge.svg)](https://github.com/BennettLandman/pymodelvis/actions/workflows/tests.yml)
 ![python](https://img.shields.io/badge/python-3.9%E2%80%933.12-blue)
 ![pytorch](https://img.shields.io/badge/PyTorch-%E2%89%A52.1-ee4c2c)
 [![license](https://img.shields.io/badge/license-BSD--3--Clause-green)](LICENSE)
+[![website](https://img.shields.io/badge/website-bennettlandman.github.io%2Fpymodelvis-4fd1e8)](https://bennettlandman.github.io/pymodelvis/)
 
 ![ResNet-50 looking at a cat](examples/outputs/resnet50_cinematic.png)
 

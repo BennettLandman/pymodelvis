@@ -33,8 +33,9 @@ dependencies = [
 neural-flow = "neural_flow.cli:main"
 
 [project.urls]
-Homepage = "https://github.com/BennettLandman/pymodelvis"
-Documentation = "https://github.com/BennettLandman/pymodelvis/tree/main/docs"
+Homepage = "https://bennettlandman.github.io/pymodelvis/"
+Documentation = "https://bennettlandman.github.io/pymodelvis/installation/"
+Source = "https://github.com/BennettLandman/pymodelvis"
 Issues = "https://github.com/BennettLandman/pymodelvis/issues"
 
 [project.optional-dependencies]

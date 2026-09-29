@@ -1,0 +1,308 @@
+{% extends "main.html" %}
+
+{#- Landing page. Content lives here; website/pages/index.md only selects this template. -#}
+
+{% block tabs %}
+{{ super() }}
+<div class="nf-home">
+
+  <!-- ─────────────────────────── hero ─────────────────────────── -->
+  <section class="nf-hero">
+    <div class="nf-wrap">
+      <p class="nf-eyebrow">pymodelvis · <code>neural_flow</code> for PyTorch</p>
+      <h1 class="nf-title">See what your network&nbsp;sees.</h1>
+      <p class="nf-lede">
+        Graph viewers draw a model's <em>operations</em>. <strong>neural_flow</strong> draws what one
+        specific input <em>becomes</em> inside it — stage by stage, from pixels or voxels to the
+        prediction — with the evidence for each step. As figures for papers and talks, an interactive
+        explorer, and movies over changing inputs.
+      </p>
+      <div class="nf-actions">
+        <a class="nf-btn nf-btn--primary" href="{{ 'installation/' | url }}">Get started</a>
+        <a class="nf-btn" href="{{ 'cli/' | url }}">Command line</a>
+        <a class="nf-btn" href="{{ 'gallery/' | url }}">Gallery</a>
+        <a class="nf-btn nf-btn--ghost" href="{{ config.repo_url }}">GitHub&nbsp;↗</a>
+      </div>
+      <div class="nf-install">
+        <span class="nf-install__prompt">$</span>
+        <code id="nf-install-cmd">pip install "pymodelvis[all] @ git+https://github.com/BennettLandman/pymodelvis"</code>
+        <button class="nf-copy" data-copy="#nf-install-cmd" title="Copy">copy</button>
+      </div>
+    </div>
+
+    <figure class="nf-hero__figure">
+      <a class="nf-zoom" href="{{ 'media/resnet50_cinematic.webp' | url }}"
+         data-caption="ResNet-50 (ImageNet weights) looks at a cat. Every picture is computed from this photograph.">
+        <img src="{{ 'media/resnet50_cinematic.webp' | url }}" width="2400" height="663"
+             alt="ResNet-50 activation flow for a photograph of a cat, from the input through feature-map stacks to the prediction 'Egyptian cat'">
+      </a>
+      <figcaption class="nf-wrap">
+        <span>ResNet-50 looks at a cat.</span>
+        Stacks are the most active feature maps at each stage (front page: all channels as colour).
+        Beams show which region of one stage feeds the next; circles show what a unit sees in the
+        photograph; lines into the head are weight × activation; the heat map is Grad-CAM.
+      </figcaption>
+    </figure>
+  </section>
+
+  <!-- ─────────────────────────── try it ─────────────────────────── -->
+  <section class="nf-section">
+    <div class="nf-wrap nf-split">
+      <div>
+        <h2>One command, no code</h2>
+        <p>
+          Installing adds a <code>neural-flow</code> command. Point it at a model and an input; it
+          picks the stages worth showing, runs the model once, and writes the figure.
+          Models can be built-in names, any torchvision or timm model, a MONAI bundle, a saved
+          <code>model.pt</code>, or your own <code>my_net.py:Class</code> with a checkpoint.
+        </p>
+        <p><a class="nf-link" href="{{ 'cli/' | url }}">Command-line guide →</a></p>
+      </div>
+      <div class="nf-term" role="figure" aria-label="terminal example">
+        <div class="nf-term__bar"><i></i><i></i><i></i><span>terminal</span></div>
+<pre><span class="c"># the cat above</span>
+<b>$</b> neural-flow demo cat
+
+<span class="c"># your photo, a real model</span>
+<b>$</b> neural-flow render resnet50 -i photo.jpg \
+      --style cinematic -o flow.png
+
+<span class="c"># your 3-D U-Net on a NIfTI volume</span>
+<b>$</b> neural-flow render my_unet.py:UNet3D \
+      --weights best.pt -i t1.nii.gz --crop 96
+
+<span class="c"># a movie: which region matters?</span>
+<b>$</b> neural-flow movie cxr --occlusion chest.png -o occ.mp4</pre>
+      </div>
+    </div>
+    <div class="nf-wrap nf-split nf-split--reverse">
+      <div>
+        <h2>…or one line of Python</h2>
+        <p>
+          <code>visualize_model</code> works with any <code>nn.Module</code>: CNNs, U-Nets, vision
+          transformers, 3-D medical networks, and models with several inputs or heads. Hooks are
+          always removed and the model is never modified.
+        </p>
+        <p><a class="nf-link" href="{{ 'user_guide/' | url }}">Python guide →</a> &nbsp;
+           <a class="nf-link" href="{{ 'api/' | url }}">API →</a></p>
+      </div>
+      <div class="nf-term nf-term--code">
+        <div class="nf-term__bar"><i></i><i></i><i></i><span>python</span></div>
+<pre><b>from</b> neural_flow <b>import</b> visualize_model, animate_inputs
+
+visualize_model(model, x, output=<s>"flow.png"</s>,
+                style=<s>"cinematic"</s>)
+visualize_model(model, x, output=<s>"explore.html"</s>)
+
+<span class="c"># several inputs, several heads, 3-D volumes</span>
+visualize_model(model, {<s>"mri"</s>: vol, <s>"clinical"</s>: v})
+
+<span class="c"># a movie over a sequence of inputs</span>
+animate_inputs(model, frames, output=<s>"pan.mp4"</s>)</pre>
+      </div>
+    </div>
+  </section>
+
+  <!-- ─────────────────────────── principles ─────────────────────────── -->
+  <section class="nf-section nf-section--tight">
+    <div class="nf-wrap">
+      <h2 class="nf-center">Designed to be trusted</h2>
+      <div class="nf-grid nf-grid--3">
+        <article class="nf-card">
+          <h3><span class="nf-dot" style="--c:#4fd1e8"></span>Automatic</h3>
+          <p>Picks the 5–12 stages worth showing from arbitrary architectures and folds away
+             activations, normalization and reshapes. Override any choice by name, type or regex.</p>
+        </article>
+        <article class="nf-card">
+          <h3><span class="nf-dot" style="--c:#f5b942"></span>Faithful</h3>
+          <p>Every pixel comes from the actual input. Outputs are shown as probabilities only when
+             they are probabilities, and summarized stages are marked <code>≈</code>.</p>
+        </article>
+        <article class="nf-card">
+          <h3><span class="nf-dot" style="--c:#b18cff"></span>Explanatory</h3>
+          <p>Receptive fields, stage-to-stage dependencies, weight × activation contributions and
+             Grad-CAM, all computed from gradients for the input you give it.</p>
+        </article>
+        <article class="nf-card">
+          <h3><span class="nf-dot" style="--c:#ff7a8a"></span>3-D native</h3>
+          <p><code>[B, C, X, Y, Z]</code> is a first-class object: anatomy becomes translucent voxel
+             blocks, with activation-driven orthogonal slices and 3-D segmentations.</p>
+        </article>
+        <article class="nf-card">
+          <h3><span class="nf-dot" style="--c:#6ee7a8"></span>Safe at scale</h3>
+          <p>Large activations are summarized on the model's own device within a memory budget.
+             Visualization problems never break your forward pass.</p>
+        </article>
+        <article class="nf-card">
+          <h3><span class="nf-dot" style="--c:#e8e8ea"></span>Presentation-grade</h3>
+          <p>Black cinematic, technical and teaching styles; PNG, SVG and PDF; an interactive
+             HTML explorer; MP4 and GIF movies; a bundled typeface.</p>
+        </article>
+      </div>
+    </div>
+  </section>
+
+  <!-- ─────────────────────────── gallery ─────────────────────────── -->
+  <section class="nf-section">
+    <div class="nf-wrap">
+      <h2>From photographs to MRI volumes</h2>
+      <p class="nf-sub">Real pretrained weights where they exist; demo models trained on synthetic data otherwise.</p>
+      <div class="nf-grid nf-grid--2 nf-gallery">
+        {% set items = [
+          ("vit_b_16_cinematic", "ViT-B/16", "The same cat through a vision transformer. The 197 tokens become a class token and a 14 × 14 grid; by block 4 every token draws on the whole image.", true),
+          ("unet2d_cinematic", "2-D U-Net", "Skip connections become bridges in a U layout; the segmentation is drawn over the input.", false),
+          ("medical_3d_cinematic", "3-D U-Net", "An MRI-like volume turns into increasingly abstract voxel blocks, then a 3-D lesion segmentation.", false),
+          ("chest_xray_cinematic", "Chest X-ray · DenseNet-121", "TorchXRayVision on a public NIH radiograph, 18 pathologies as independent probabilities. The Cardiomegaly evidence lies on the heart.", true),
+          ("multihead_cinematic", "Multi-input, multi-head", "MRI + clinical vector → segmentation, lesion probability and brain age, with branches and a fusion point.", false),
+          ("medical_3d_projection", "3-D U-Net, projection view", "Each 3-D stage summarized as projections along the volume axes, in the light technical style.", false),
+        ] %}
+        {% for stem, title, text, wide in items %}
+        <figure class="nf-shot{% if wide %} nf-shot--wide{% endif %}">
+          <a class="nf-zoom" href="{{ ('media/' ~ stem ~ '.webp') | url }}" data-caption="{{ title }}: {{ text }}">
+            <img loading="lazy" src="{{ ('media/' ~ stem ~ ('.webp' if wide else '_thumb.webp')) | url }}" alt="{{ title }} activation flow figure">
+          </a>
+          <figcaption><strong>{{ title }}</strong>{{ text }}</figcaption>
+        </figure>
+        {% endfor %}
+      </div>
+      <p class="nf-center"><a class="nf-btn" href="{{ 'gallery/' | url }}">Full gallery</a></p>
+    </div>
+  </section>
+
+  <!-- ─────────────────────────── movies ─────────────────────────── -->
+  <section class="nf-section nf-section--movies">
+    <div class="nf-wrap">
+      <h2>Movies over changing inputs</h2>
+      <p class="nf-sub">
+        Stages, channels, colours and scales are held fixed across frames, so everything that moves
+        is the network responding.
+      </p>
+      <div class="nf-grid nf-grid--2">
+        {% set movies = [
+          ("movie_pan_resnet", "Camera pan · ResNet-50", "A window slides across four photographs: cat → espresso → drilling platform → go-kart."),
+          ("movie_aging", "Ageing subject · multi-head 3-D", "A synthetic subject ages while a lesion grows. Brain age, lesion probability and the segmentation track it."),
+          ("movie_cxr_occlusion", "Occlusion · chest X-ray", "A grey patch slides over the radiograph. Cardiomegaly drops when the patch covers the heart."),
+          ("movie_pan_vit", "Camera pan · ViT-B/16", "The same four photographs through a vision transformer, token grids and all."),
+        ] %}
+        {% for stem, title, text in movies %}
+        <figure class="nf-movie">
+          <video muted loop playsinline preload="none" poster="{{ ('media/' ~ stem ~ '_poster.webp') | url }}"
+                 aria-label="{{ title }}">
+            <source src="{{ ('media/' ~ stem ~ '.mp4') | url }}" type="video/mp4">
+          </video>
+          <figcaption><strong>{{ title }}</strong>{{ text }}</figcaption>
+        </figure>
+        {% endfor %}
+      </div>
+      <p class="nf-center"><a class="nf-link" href="{{ 'movies/' | url }}">How movies work →</a></p>
+    </div>
+  </section>
+
+  <!-- ─────────────────────────── styles ─────────────────────────── -->
+  <section class="nf-section">
+    <div class="nf-wrap">
+      <h2>One trace, several audiences</h2>
+      <p class="nf-sub">The same captured activations, drawn for a talk, a paper, a classroom or a poster.</p>
+      <div class="nf-tabs" data-nf-tabs>
+        <div class="nf-tabs__bar" role="tablist">
+          <button role="tab" aria-selected="true" data-tab="0">Cinematic</button>
+          <button role="tab" aria-selected="false" data-tab="1">Technical</button>
+          <button role="tab" aria-selected="false" data-tab="2">Story</button>
+          <button role="tab" aria-selected="false" data-tab="3">Light, 16:9</button>
+        </div>
+        {% set styles = [
+          ("resnet50_cinematic", "style=\"cinematic\"  — black, feature-map stacks, explanations"),
+          ("resnet50_technical", "style=\"technical\"  — exact shapes and module names for papers"),
+          ("resnet50_story", "style=\"story\"  — plain-language stage names for teaching"),
+          ("resnet50_cinematic_light", "style=\"cinematic\", theme=\"light\"  — for posters and white slides"),
+        ] %}
+        {% for stem, cap in styles %}
+        <figure class="nf-tabs__panel" role="tabpanel" {% if not loop.first %}hidden{% endif %}>
+          <a class="nf-zoom" href="{{ ('media/' ~ stem ~ '.webp') | url }}" data-caption="{{ cap }}">
+            <img loading="lazy" src="{{ ('media/' ~ stem ~ '.webp') | url }}" alt="{{ cap }}">
+          </a>
+          <figcaption><code>{{ cap }}</code></figcaption>
+        </figure>
+        {% endfor %}
+      </div>
+    </div>
+  </section>
+
+  <!-- ─────────────────────────── how it works ─────────────────────────── -->
+  <section class="nf-section nf-section--tight">
+    <div class="nf-wrap">
+      <h2 class="nf-center">How it works</h2>
+      <ol class="nf-steps">
+        <li><h3>Trace</h3><p>Forward hooks and a runtime dataflow tracer record every module call, its shape, and the real wiring: skips, merges and branches.</p></li>
+        <li><h3>Select</h3><p>A module-tree cut picks 5–12 stages that change the representation, grouped into concepts such as “low-level features” or “decoder”.</p></li>
+        <li><h3>Explain</h3><p>Gradients give each stage's receptive field, its dependency on the previous stage, head contributions and Grad-CAM.</p></li>
+        <li><h3>Render</h3><p>2-D maps, 3-D volumes, tokens, vectors and attention become pictures: figures, the HTML explorer, or movies.</p></li>
+      </ol>
+      <p class="nf-center"><a class="nf-link" href="{{ 'architecture/' | url }}">Architecture →</a> &nbsp;
+         <a class="nf-link" href="{{ 'cinematic/' | url }}">What beams, circles and lines mean →</a></p>
+    </div>
+  </section>
+
+  <!-- ─────────────────────────── explorer + deck ─────────────────────────── -->
+  <section class="nf-section">
+    <div class="nf-wrap nf-grid nf-grid--2">
+      <article class="nf-feature">
+        <a href="{{ 'media/explorer/resnet50.html' | url }}" class="nf-feature__media">
+          <img loading="lazy" src="{{ 'media/resnet50_cinematic_169_thumb.webp' | url }}" alt="Interactive explorer">
+          <span class="nf-badge">interactive</span>
+        </a>
+        <h3>Interactive explorer</h3>
+        <p>One self-contained HTML file: click a stage to see its module, shape and value statistics,
+           switch the channel ranking, expand individual channels and browse attention heads.
+           No server needed.</p>
+        <p><a class="nf-link" href="{{ 'media/explorer/resnet50.html' | url }}">Open the ResNet-50 explorer →</a></p>
+      </article>
+      <article class="nf-feature">
+        <a href="{{ 'deck/' | url }}" class="nf-feature__media">
+          <img loading="lazy" src="{{ 'deck/deck_preview.jpg' | url }}" alt="Slide deck preview">
+          <span class="nf-badge">.pptx</span>
+        </a>
+        <h3>A slide deck, made from the outputs</h3>
+        <p>A 15-slide PowerPoint with the figures, four embedded movies and speaker notes — an example
+           of what the tool produces for a talk, and a template for your own.</p>
+        <p><a class="nf-link" href="{{ 'deck/neural_flow_deck.pptx' | url }}">Download the deck →</a></p>
+      </article>
+    </div>
+  </section>
+
+  <!-- ─────────────────────────── cite ─────────────────────────── -->
+  <section class="nf-section nf-section--cite">
+    <div class="nf-wrap nf-split">
+      <div>
+        <h2>Open source, from the MASI Lab</h2>
+        <p>
+          Developed at the Medical-image Analysis and Statistical Interpretation (MASI) Lab and
+          VALIANT, Vanderbilt University. Released under the BSD-3-Clause license. Issues and pull
+          requests are welcome.
+        </p>
+        <div class="nf-actions">
+          <a class="nf-btn nf-btn--primary" href="{{ config.repo_url }}">Star on GitHub</a>
+          <a class="nf-btn" href="{{ 'contributing/' | url }}">Contribute</a>
+          <a class="nf-btn nf-btn--ghost" href="{{ 'references/' | url }}">References</a>
+        </div>
+      </div>
+      <div class="nf-term">
+        <div class="nf-term__bar"><i></i><i></i><i></i><span>cite</span><button class="nf-copy" data-copy="#nf-bibtex">copy</button></div>
+<pre id="nf-bibtex">@software{landman_pymodelvis_2026,
+  author  = {Landman, Bennett},
+  title   = {pymodelvis / neural_flow:
+             representation-flow visualization
+             for PyTorch models},
+  year    = {2026},
+  version = {0.1.0},
+  url     = {https://github.com/BennettLandman/pymodelvis},
+  license = {BSD-3-Clause}
+}</pre>
+      </div>
+    </div>
+  </section>
+
+</div>
+{% endblock %}
+
+{% block content %}{% endblock %}
