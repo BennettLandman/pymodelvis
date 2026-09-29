@@ -1,0 +1,29 @@
+name: tests
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        python-version: ["3.10", "3.12"]
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: ${{ matrix.python-version }}
+      - name: Install CPU PyTorch
+        run: pip install torch torchvision --index-url https://download.pytorch.org/whl/cpu
+      - name: Install package
+        run: pip install -e ".[dev,animation]"
+      - name: Run tests
+        run: pytest -q
+      - name: CLI smoke test
+        run: |
+          neural-flow --help
+          neural-flow render torchvision:resnet18:none -i random:1,3,64,64 -o smoke.png --allow-random-weights -q

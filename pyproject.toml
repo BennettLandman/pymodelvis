@@ -1,0 +1,57 @@
+[build-system]
+requires = ["setuptools>=64", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "pymodelvis"
+version = "0.1.0"
+description = "neural_flow: see what a PyTorch network sees — representation-flow visualisations, explanations and movies for 2-D, 3-D medical, transformer and multi-head models."
+readme = "README.md"
+requires-python = ">=3.9"
+license = { text = "BSD-3-Clause" }
+authors = [{ name = "Bennett Landman", email = "bennett.landman@vanderbilt.edu" }, { name = "MASI Lab, Vanderbilt University" }]
+keywords = ["pytorch", "visualization", "interpretability", "activations", "medical imaging", "neural networks"]
+classifiers = [
+  "Development Status :: 3 - Alpha",
+  "Intended Audience :: Science/Research",
+  "Intended Audience :: Education",
+  "License :: OSI Approved :: BSD License",
+  "Programming Language :: Python :: 3",
+  "Topic :: Scientific/Engineering :: Visualization",
+  "Topic :: Scientific/Engineering :: Artificial Intelligence",
+  "Topic :: Scientific/Engineering :: Medical Science Apps.",
+]
+dependencies = [
+  "torch>=2.1",
+  "numpy>=1.22",
+  "matplotlib>=3.6",
+  "pillow>=9",
+  "networkx>=2.8",
+]
+
+[project.scripts]
+neural-flow = "neural_flow.cli:main"
+
+[project.urls]
+Homepage = "https://github.com/BennettLandman/pymodelvis"
+Documentation = "https://github.com/BennettLandman/pymodelvis/tree/main/docs"
+Issues = "https://github.com/BennettLandman/pymodelvis/issues"
+
+[project.optional-dependencies]
+examples = ["torchvision>=0.16", "timm>=0.9", "scikit-image>=0.20", "torchxrayvision>=1.2"]
+animation = ["imageio>=2.28", "imageio-ffmpeg>=0.4"]
+medical = ["monai>=1.3", "nibabel>=5", "einops>=0.6", "nilearn>=0.10", "huggingface_hub>=0.20"]
+dev = ["pytest>=7", "torchvision>=0.16"]
+all = ["torchvision>=0.16", "timm>=0.9", "scikit-image>=0.20", "torchxrayvision>=1.2", "imageio>=2.28",
+       "imageio-ffmpeg>=0.4", "monai>=1.3", "nibabel>=5", "einops>=0.6", "nilearn>=0.10", "huggingface_hub>=0.20",
+       "pytest>=7"]
+
+[tool.setuptools.packages.find]
+include = ["neural_flow*"]
+
+[tool.setuptools.package-data]
+neural_flow = ["fonts/*.ttf", "fonts/*.txt", "data/*.jpg"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+filterwarnings = ["ignore::DeprecationWarning"]

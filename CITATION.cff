@@ -1,0 +1,24 @@
+cff-version: 1.2.0
+message: "If you use this software, please cite it as below."
+title: "pymodelvis / neural_flow: representation-flow visualization for PyTorch models"
+abstract: >-
+  neural_flow draws what a specific input becomes as it moves through a PyTorch network:
+  actual activations per stage, stage-to-stage dependencies, receptive fields, head contributions
+  and Grad-CAM evidence, for 2-D, 3-D medical-imaging, transformer and multi-input / multi-head
+  models, as static figures, an interactive explorer and movies over changing inputs.
+type: software
+authors:
+  - family-names: Landman
+    given-names: Bennett
+    affiliation: "Vanderbilt University (MASI Lab / VALIANT)"
+    email: bennett.landman@vanderbilt.edu
+repository-code: "https://github.com/BennettLandman/pymodelvis"
+license: BSD-3-Clause
+version: 0.1.0
+date-released: 2026-09-29
+keywords:
+  - PyTorch
+  - visualization
+  - interpretability
+  - medical imaging
+  - deep learning
