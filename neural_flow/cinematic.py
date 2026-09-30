@@ -399,11 +399,16 @@ def _render(res, frame, th, title, subtitle) -> FlowFigure:
                     break
             ctx = getattr(res, "context", {}) or {}
             base = ctx.get("seg_base", base)
+            k = 0.9
+            if ctx.get("sliding_window") and ov.mask.ndim == 3:     # whole-volume result: larger, and
+                n_mod = sum(1 for s in g.stages.values() if s.kind == "module")   # grows with a deep U
+                k = 1.45 * float(np.clip(n_mod / 7.5, 1.0, 2.0))
+            sz = int(round(200 * max(1.0, k / 1.45)))              # render big cards at their resolution
             vis = render_segmentation(ov.mask, base, cfg, cfg.volume_axes, fov=ctx.get("seg_fov"),
-                                      boxes=ctx.get("seg_boxes"))
+                                      boxes=ctx.get("seg_boxes"), size=sz)
             cn.image = vis.image
             cn.extras["ortho"] = vis.extras.get("ortho")
-            k = 1.45 if ctx.get("sliding_window") and ov.mask.ndim == 3 else 0.9   # whole-volume result: larger
+            k *= 200.0 / sz
             cn.w, cn.h = cn.image.shape[1] / P * k, cn.image.shape[0] / P * k
             cn.kind = "segcard"
         else:

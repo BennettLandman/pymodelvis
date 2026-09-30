@@ -27,9 +27,12 @@ neural_flow/
   movie.py         movies over changing inputs
   sequences.py     input-sequence generators
   volume3d.py      3-D helpers: sliding-window inference and its movie, flat_3d projections
-  zoo.py           model / input loading for the command line (aliases, bundles, NIfTI + spacing)
+  nnunet.py        trained nnU-Net v2 results folders: plans → network, checkpoint, nnU-Net preprocessing,
+                   TotalSegmentator downloads
+  zoo.py           model / input loading for the command line (aliases, bundles, nnU-Net, NIfTI + spacing)
   cli.py           the `neural-flow` command
-  adapters/        architecture families: transformer-unet (UNETR / Swin UNETR / UNesT), unet,
+  adapters/        architecture families: nnunet (dynamic_network_architectures U-Nets; also switches
+                   deep supervision off), transformer-unet (UNETR / Swin UNETR / UNesT), unet,
                    transformer, medical3d, cnn
   fonts/           Inter (SIL OFL)
 ```

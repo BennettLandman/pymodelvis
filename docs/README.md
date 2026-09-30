@@ -13,6 +13,7 @@
 * [Movies](movies.md): input sequences, what is held fixed, cost
 * [3-D models](volumes_3d.md): voxel spacing, UNETR / Swin UNETR / UNesT, sliding windows, 3-D inference movies
 * [Real models](real_models.md): pretrained weights, MONAI bundles, MASI UNesT
+* [nnU-Net and TotalSegmentator](nnunet.md): nnU-Net U-Nets level by level, trained results folders, TotalSegmentator on CT
 * [Troubleshooting](troubleshooting.md)
 
 **How it works**

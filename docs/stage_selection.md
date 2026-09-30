@@ -71,6 +71,13 @@ two or more other top-level units, and then shows:
 It also raises the stage budget to 14 and turns the U layout on. A plain ViT classifier (one
 consumer of the backbone) is not affected.
 
+The *nnU-Net* adapter proposes the stages of U-Nets built by `dynamic_network_architectures`
+(`PlainConvUNet`, `ResidualEncoderUNet`), recognised by structure: a module with `stages`,
+`transpconvs` and `seg_layers` lists next to a module with `stages`. It shows the stem (residual
+encoders), every encoder stage (the last one as BOTTLENECK), one stage per decoder level
+(`decoder.stages[s]`; the transposed convolution and skip concatenation are folded into its edges),
+and the final full-resolution `seg_layers` entry as the head. See [nnU-Net](nnunet.md).
+
 ## 3. Inserted representation stages
 
 If a head consumes a *vector* but its predecessor stage is still spatial or token-shaped (ViT:

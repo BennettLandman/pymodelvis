@@ -16,10 +16,11 @@ from .base import Adapter, apply_defaults, assign_concepts
 from .cnn import CNNAdapter
 from .hybrid import HybridTransformerUNetAdapter
 from .medical3d import Medical3DAdapter
+from .nnunet import NNUNetAdapter, inference_view
 from .transformer import TransformerAdapter
 from .unet import UNetAdapter
 
-_REGISTRY: List[Adapter] = [HybridTransformerUNetAdapter(), UNetAdapter(), TransformerAdapter(), Medical3DAdapter(), CNNAdapter()]
+_REGISTRY: List[Adapter] = [NNUNetAdapter(), HybridTransformerUNetAdapter(), UNetAdapter(), TransformerAdapter(), Medical3DAdapter(), CNNAdapter()]
 
 
 def register_adapter(adapter: Adapter, first: bool = True) -> None:
@@ -34,4 +35,4 @@ def matching_adapters(model, trace, graph=None) -> List[Adapter]:
     return [a for s, i, a in sorted(scored, key=lambda t: (-t[0], t[1])) if s > 0]
 
 
-__all__ = ["Adapter", "register_adapter", "matching_adapters", "apply_defaults", "assign_concepts"]
+__all__ = ["Adapter", "inference_view", "register_adapter", "matching_adapters", "apply_defaults", "assign_concepts"]

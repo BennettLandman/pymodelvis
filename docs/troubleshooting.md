@@ -35,6 +35,17 @@ them). Set `explain=False` (`--no-explain`), lower `max_capture_mb` and `max_spa
 window (`--crop 96`, or `--sliding-window`, which traces one window and fuses the rest without
 gradients). For many-class models, lower `sw_max_mb` so fused logits are accumulated on a coarser grid.
 
+**"explanations skipped: the backward pass needs ≈N GB".**
+Large 3-D patches (nnU-Net's 128³, for example) need several GB for the gradient pass behind the
+receptive-field circles and beams. `neural_flow` estimates it and skips the explanations rather than run
+out of memory. On a machine with more memory, force them with `explain_max_mb=16000`
+(`--set explain_max_mb=16000`).
+
+**An nnU-Net model shows several outputs / the decoder is missing.**
+Deep supervision is switched off automatically; if you see `output 0 … 3`, `aux_outputs=True` was set.
+If the decoder is incomplete, the network does not follow the `dynamic_network_architectures` layout;
+check `neural-flow inspect … --all-modules` and pass `layers=[...]`.
+
 **A 3-D transformer (UNETR, Swin UNETR, UNesT …) is drawn as one box.**
 The transformer U-Net adapter needs the runtime dataflow (the default `topology="auto"`). Check with
 `neural-flow inspect MODEL -i INPUT`: the adapters line should list `transformer-unet`. If your model

@@ -154,12 +154,37 @@ python examples/monai_bundle.py
 python examples/monai_bundle.py --movie   # sliding-window inference over the whole head
 ```
 
-## 10. Extras (`extras.py`)
+## 10. nnU-Net: TotalSegmentator on a CT (`nnunet_totalseg.py`)
+
+Real TotalSegmentator weights (nnU-Net v2 results folders) on TotalSegmentator's public example CT.
+The network is rebuilt from `plans.json` and preprocessed exactly as nnU-Net does (RAS, CT clipping and
+normalisation, resampling to the target spacing). Stages are the encoder levels, the bottleneck and
+the decoder levels; the output card is the whole CT fused from sliding windows with the plans' patch
+size and 50 % overlap.
+
+![TotalSegmentator organs](../examples/outputs/nnunet_totalseg_organs.png)
+
+* `nnunet_totalseg.png`: the fast 3 mm model, 117 structures, patch 112×112×128 (one window covers
+  this small CT).
+* `nnunet_totalseg_organs.png`: the 1.5 mm organ model, 24 structures, 128³ patches, 27 windows.
+* `movie_sliding_window_totalseg_organs.mp4`: the organ model working through the CT window by window
+  (all 27 windows are fused; 14 evenly spaced ones are shown, `--max-windows 0` shows all).
+
+```bash
+neural-flow fetch totalseg totalseg-organs
+python examples/nnunet_totalseg.py
+python examples/nnunet_totalseg.py --model totalseg-organs --movie
+python examples/nnunet_totalseg.py --results path/to/your/results_folder --image case.nii.gz
+```
+
+See [nnU-Net and TotalSegmentator](nnunet.md).
+
+## 11. Extras (`extras.py`)
 
 Interactive HTML explorer (`resnet50_interactive.html`), a 16:9 cinematic figure, a light-theme
 cinematic figure, an SVG, and the "light-up" GIF from `animate_model`.
 
-## 11. The slide deck (`docs/deck/`)
+## 12. The slide deck (`docs/deck/`)
 
 [`neural_flow_deck.pptx`](deck/neural_flow_deck.pptx) is a 15-slide deck built entirely from these
 outputs. It has title, scoping, design criteria, an examples summary, one slide per example, two

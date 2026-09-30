@@ -77,6 +77,25 @@ a CPU; use `--no-explain` on smaller machines.
 > development sandbox (the NVIDIA, Hugging Face and NGC hosts are blocked there), so the first run with
 > real weights happens on your machine.
 
+## nnU-Net models and TotalSegmentator
+
+```bash
+neural-flow fetch totalseg totalseg-organs            # TotalSegmentator weights (GitHub releases) + example CT
+python examples/nnunet_totalseg.py                    # both figures
+python examples/nnunet_totalseg.py --model totalseg-organs --movie
+neural-flow render nnunet:path/to/results_folder -i case.nii.gz --sliding-window --style cinematic
+```
+
+Any trained nnU-Net v2 model loads from its results folder (`plans.json`, `dataset.json`,
+`fold_N/checkpoint_final.pth`) with nnU-Net's preprocessing, patch size, spacing and window overlap;
+nnU-Net itself is not needed, only `dynamic-network-architectures`. TotalSegmentator's models are such
+folders; `neural-flow fetch` downloads them from the project's GitHub releases (Apache-2.0) into
+`~/.cache/neural_flow/nnunet/`.
+
+> Status: tested here with the real TotalSegmentator weights (3 mm total model and 1.5 mm organ model)
+> on TotalSegmentator's example CT. The 3 mm result matches TotalSegmentator's own reference
+> segmentation (Dice 0.95–0.98 on the major organs). Details: [nnU-Net and TotalSegmentator](nnunet.md).
+
 ## Your own model
 
 Nothing here is special to these models. Any `nn.Module` works:

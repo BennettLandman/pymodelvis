@@ -54,12 +54,14 @@ convention for `cxr`.
 | a timm model | `timm:convnext_tiny` |
 | a chest X-ray model | `cxr` or `xrv:densenet121-res224-chex` |
 | a MONAI bundle | `monai:path/to/bundle` or `unest` (after `neural-flow fetch unest`) |
+| a trained nnU-Net v2 model | `nnunet:path/to/results_folder[:FOLD]` (the `Trainer__Plans__3d_fullres` folder or its `Dataset…` folder; see [nnU-Net](nnunet.md)) |
+| TotalSegmentator (CT) | `totalseg` (3 mm, 117 structures), `totalseg-6mm`, `totalseg-organs` (1.5 mm, 24 organs) |
 | your own class in a file | `my_net.py:UNet --model-args '{"in_ch": 1, "n_classes": 3}' --weights ckpt.pt` |
 | your own class in a package | `mypkg.models:build_model --weights ckpt.pt` |
 | a whole saved model | `model.pt` (saved with `torch.save(model, "model.pt")`) |
 
 Built-in aliases: `resnet50`, `resnet18`, `vit`, `vit_b_16`, `swin_t`, `densenet121`, `cxr`,
-`unest` (`neural-flow models` lists them).
+`unest`, `totalseg`, `totalseg-6mm`, `totalseg-organs` (`neural-flow models` lists them).
 
 `--weights` accepts plain state dicts and checkpoints that wrap one (`{"state_dict": …}`,
 `{"model": …}`); a `module.` prefix from DataParallel is removed automatically. If weights cannot
@@ -72,10 +74,10 @@ be downloaded the command stops; add `--allow-random-weights` to continue anyway
 | input | example |
 |---|---|
 | image (png, jpg, tif, …) | `-i photo.jpg` |
-| 3-D volume (NIfTI) | `-i scan.nii.gz --crop 96` (96³ ROI at the centre of mass; MONAI bundles use their own ROI and preprocessing) |
+| 3-D volume (NIfTI) | `-i scan.nii.gz --crop 96` (96³ ROI at the centre of mass; MONAI bundles and nnU-Net models use their own ROI and preprocessing) |
 | ready tensor | `-i x.npy` or `-i x.pt` |
 | random smoke test | `-i random:1,3,224,224` |
-| bundled samples | `-i sample:cat`, `-i sample:cxr` |
+| bundled samples | `-i sample:cat`, `-i sample:cxr`, `-i sample:ct` (TotalSegmentator's example CT, downloaded once) |
 | several inputs | `-i image=scan.png -i clinical=features.npy` (names must match the model's `forward` arguments) |
 
 Preprocessing overrides: `--size 256`, `--no-center-crop`, `--preset imagenet|raw|xray|volume`,
@@ -139,14 +141,25 @@ neural-flow render my_unet.py:UNet3D -i scan.nii.gz --crop 96 --flat-3d         
 | (automatic) | voxel spacing is read from the NIfTI header, so volumes are drawn to scale |
 | `--spacing SX SY SZ` / `--no-spacing` | override the spacing / draw voxels as cubes |
 | `--sliding-window` | trace one window; the output card shows the whole volume fused from all windows |
-| `--roi N` or `--roi X Y Z` | window size (default: `--crop`, the bundle's ROI, or 96) |
-| `--sw-overlap F` | window overlap (default 0.25) |
+| `--roi N` or `--roi X Y Z` | window size (default: `--crop`, the bundle's ROI, the nnU-Net patch size, or 96) |
+| `--sw-overlap F` | window overlap (default 0.25; 0.5 for nnU-Net models) |
 | `--roi-center X Y Z` | voxel the traced window is centred on (default: centre of the foreground) |
 | `--flat-3d [max\|mean]` | optional: draw 3-D stages as 2-D projections |
 | `--volume-mode`, `--volume-axes` | see [Appearance](#7-appearance) |
 
 Transformer U-Nets (UNETR, Swin UNETR, UNesT) are recognised automatically: their transformer levels
 become stages and the decoder is drawn as a U. See [3-D models](volumes_3d.md).
+
+nnU-Net models are drawn one stage per resolution level (encoder, bottleneck, decoder, segmentation
+layer), with deep supervision off:
+
+```bash
+neural-flow fetch totalseg
+neural-flow render totalseg -i sample:ct --sliding-window --style cinematic
+neural-flow render nnunet:$nnUNet_results/Dataset123_Liver -i case.nii.gz --sliding-window
+```
+
+See [nnU-Net and TotalSegmentator](nnunet.md).
 
 ## 9. Movies
 
@@ -158,6 +171,7 @@ neural-flow movie resnet50 --crossfade cat.jpg dog.jpg -o morph.mp4
 neural-flow movie my_net.py:Net --weights w.pt --frames "followup/*.nii.gz" --crop 96 -o timecourse.mp4
 neural-flow movie unest --volume-sweep T1_mni.nii.gz --steps 24 -o sweep.mp4
 neural-flow movie unest --inference T1_mni.nii.gz --max-windows 16 -o inference.mp4   # 3-D inference, window by window
+neural-flow movie totalseg-organs --inference sample:ct -o ct_inference.mp4              # nnU-Net on a CT
 ```
 
 Common options: `--steps N` (generated frames for pan / zoom / crossfade / volume sweep; the
@@ -171,6 +185,7 @@ are held fixed across frames (see [movies.md](movies.md)).
 ```bash
 neural-flow fetch resnet50 vit cxr         # pre-download into ~/.cache/neural_flow
 neural-flow fetch unest                    # MASI UNesT MONAI bundle + MNI152 T1 (needs monai, nilearn)
+neural-flow fetch totalseg totalseg-organs # TotalSegmentator nnU-Net models + example CT
 neural-flow render unest -i ~/.cache/neural_flow/mni152_t1_1mm.nii.gz --style cinematic -o unest.png
 neural-flow models                         # aliases and the folders searched for weights
 ```

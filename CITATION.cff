@@ -14,8 +14,8 @@ authors:
     email: bennett.landman@vanderbilt.edu
 repository-code: "https://github.com/MASILab/pymodelvis"
 license: BSD-3-Clause
-version: 0.2.0
-date-released: 2026-09-29
+version: 0.3.0
+date-released: 2026-09-30
 keywords:
   - PyTorch
   - visualization

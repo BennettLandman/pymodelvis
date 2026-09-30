@@ -27,3 +27,8 @@ python transformer_3d.py --movie
 if python -c "from neural_flow import zoo; zoo.find_bundle(zoo.UNEST_BUNDLE)" 2>/dev/null; then
   python monai_bundle.py && python monai_bundle.py --movie
 fi
+# --- nnU-Net: TotalSegmentator (after: neural-flow fetch totalseg totalseg-organs)
+if python -c "from neural_flow.nnunet import find_results; find_results('totalseg', download=False); find_results('totalseg-organs', download=False)" 2>/dev/null; then
+  python nnunet_totalseg.py --model totalseg && python nnunet_totalseg.py --model totalseg-organs
+  python nnunet_totalseg.py --movie
+fi

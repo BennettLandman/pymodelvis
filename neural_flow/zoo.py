@@ -9,6 +9,8 @@ Model specifications
 ``timm:NAME``                          any timm model (pretrained)
 ``xrv:WEIGHTS``                        TorchXRayVision DenseNet (default ``densenet121-res224-all``)
 ``monai:BUNDLE_DIR``                   a MONAI bundle directory (``configs/inference.json``)
+``nnunet:RESULTS_DIR[:FOLD]``          a trained nnU-Net v2 results folder (plans.json, fold_N/)
+``totalseg``, ``totalseg-6mm``         TotalSegmentator's fast CT models (nnU-Net, downloaded once)
 ``path/to/file.py:Name``               a class or factory in a Python file (``--model-args`` JSON)
 ``package.module:Name``                a class or factory in an importable module
 ``path/to/model.pt``                   a pickled ``nn.Module`` saved with ``torch.save(model)``
@@ -57,6 +59,10 @@ ALIASES = {
     "densenet121": "torchvision:densenet121",
     "cxr": "xrv:densenet121-res224-all",
     "unest": f"monai:{UNEST_BUNDLE}",
+    "totalseg": "nnunet:totalseg",
+    "totalseg-3mm": "nnunet:totalseg-3mm",
+    "totalseg-6mm": "nnunet:totalseg-6mm",
+    "totalseg-organs": "nnunet:totalseg-organs",
 }
 
 
@@ -122,8 +128,12 @@ class LoadedModel:
     class_names: Optional[List[str]] = None
     output_types: Dict[str, str] = field(default_factory=dict)
     roi: Optional[Tuple[int, int, int]] = None
-    preprocess: Any = None                    # MONAI transform for volumes
+    preprocess: Any = None                    # MONAI transform / nnU-Net preprocessor for volumes
     notes: List[str] = field(default_factory=list)
+    volume_axes: Optional[str] = None         # axis order of the model's volumes (None = xyz)
+    spacing: Optional[Tuple[float, ...]] = None   # voxel size after preprocessing (tensor axis order)
+    sw_overlap: Optional[float] = None        # sliding-window overlap the model was designed for
+    info: Dict[str, Any] = field(default_factory=dict)
 
 
 # ---------------------------------------------------------------------------
@@ -386,6 +396,10 @@ def load_model(spec: str, weights: Optional[str] = None, model_args: Optional[di
         lm = _xrv(rest)
     elif kind == "monai":
         lm = load_bundle(find_bundle(rest))
+    elif kind == "nnunet":
+        from .nnunet import load_nnunet
+
+        lm = load_nnunet(rest)
     elif spec.endswith((".pt", ".pth")) and os.path.exists(spec) and ":" not in os.path.basename(spec):
         obj = torch.load(spec, map_location="cpu", weights_only=False)
         if not isinstance(obj, nn.Module):
@@ -395,7 +409,7 @@ def load_model(spec: str, weights: Optional[str] = None, model_args: Optional[di
         lm = _python_object(spec, model_args)
     else:
         raise ValueError(f"unknown model spec '{spec}'. Try one of {sorted(ALIASES)} or torchvision:NAME, timm:NAME, "
-                         f"xrv:WEIGHTS, monai:DIR, file.py:Class, module:Class, model.pt")
+                         f"xrv:WEIGHTS, monai:DIR, nnunet:DIR[:FOLD], file.py:Class, module:Class, model.pt")
     if weights:
         _load_state(lm.model, weights)
     lm.model.to(device)
@@ -467,6 +481,8 @@ def read_volume(path: str, lm: Optional[LoadedModel] = None) -> torch.Tensor:
             img = d["image"] if isinstance(d, dict) else d[0]["image"]
             return torch.as_tensor(np.asarray(img), dtype=torch.float32)
         except Exception as e:
+            if lm.volume_axes:                                # model-specific preprocessing is not optional
+                raise
             warnings.warn(f"bundle preprocessing failed ({str(e)[:120]}); using z-score")
     import nibabel as nib
 
@@ -516,7 +532,7 @@ def load_input(spec: str, lm: LoadedModel, size: Optional[int] = None, crop: Opt
     """Turn an input spec into a batched tensor for ``lm.model``.
 
     ``spec`` is an image file, a NIfTI volume, a ``.npy`` / ``.pt`` tensor, ``random:1,3,224,224``,
-    ``sample:cat`` or ``sample:cxr``.  For volumes, ``info["spacing"]`` receives the voxel size from
+    ``sample:cat``, ``sample:cxr`` or ``sample:ct`` (TotalSegmentator's example CT).  For volumes, ``info["spacing"]`` receives the voxel size from
     the header; ``whole=True`` returns the whole volume (no ROI crop, e.g. for sliding windows).
     """
     low = spec.lower()
@@ -531,10 +547,15 @@ def load_input(spec: str, lm: LoadedModel, size: Optional[int] = None, crop: Opt
         t = torch.load(spec, map_location="cpu")
         t = t if torch.is_tensor(t) else torch.as_tensor(t)
         return t.float() if t.is_floating_point() else t
+    if low == "sample:ct":
+        from .nnunet import ct_sample_path
+
+        spec, low = ct_sample_path(), "example_ct.nii.gz"
     if low.endswith(VOLUME_EXT):
         vol = read_volume(spec, lm)
         if info is not None:
-            info["spacing"] = volume_spacing(spec)
+            # after model-specific preprocessing the volume has the model's spacing and axis order
+            info["spacing"] = tuple(lm.spacing) if lm.spacing else volume_spacing(spec)
         roi = None if whole else ((crop,) * 3 if crop else lm.roi)
         return crop_volume(vol, roi) if roi else vol[None]
     if low.startswith("sample:") or low.endswith(IMAGE_EXT):

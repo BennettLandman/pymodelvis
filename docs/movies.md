@@ -65,7 +65,9 @@ model rather than decorating it:
   at a time. Each frame is one sliding window; the stages follow the window through the head while
   the fused whole-head segmentation assembles in the output card, and the film strip shows where the
   window is. `sliding_window_movie(...)`, `neural-flow movie MODEL --inference scan.nii.gz`, or
-  `python examples/transformer_3d.py --movie`. See [3-D models](volumes_3d.md).
+  `python examples/transformer_3d.py --movie`. See [3-D models](volumes_3d.md). The same with a real
+  nnU-Net on a CT: `movie_sliding_window_totalseg_organs.mp4`
+  (`neural-flow movie totalseg-organs --inference sample:ct`, see [nnU-Net](nnunet.md)).
 
 ## Cost
 

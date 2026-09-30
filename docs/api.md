@@ -57,6 +57,20 @@ A single input; stages light up one after another in data-flow order.
 
 See [3-D models](volumes_3d.md).
 
+### `neural_flow.nnunet` (trained nnU-Net v2 models)
+
+| function | does |
+|---|---|
+| `load_nnunet(spec, fold=None, checkpoint="checkpoint_final.pth", device="cpu") -> LoadedModel` | network from `plans.json`, weights of one fold, deep supervision off; `lm.preprocess`, `lm.roi` (patch size), `lm.spacing`, `lm.sw_overlap` (0.5), `lm.volume_axes` (`"zyx"`), `lm.class_names`, `lm.info` |
+| `find_results(spec)` | the `Trainer__Plans__configuration` folder for a folder, its `Dataset…` parent, or a TotalSegmentator alias |
+| `NNUNetPreprocessor(plans, configuration)` | nnU-Net's reading, cropping, normalisation and resampling; `pre({"image": path})["image"]` is `[C, z, y, x]` |
+| `build_network(plans, configuration, dataset, deep_supervision=False)` | the untrained network (old and new plans formats) |
+| `fetch_totalseg(alias)`, `ct_sample_path()` | download TotalSegmentator's models / example CT once |
+
+`zoo.load_model("nnunet:DIR[:FOLD]")`, `zoo.load_model("totalseg")` and `zoo.load_input(path, lm, whole=True)`
+wrap these. The adapter context manager `neural_flow.adapters.inference_view(model)` is what switches
+deep supervision off. See [nnU-Net and TotalSegmentator](nnunet.md).
+
 ### `neural_flow.sequences`
 
 | function | returns |
@@ -103,7 +117,7 @@ may adjust defaults you have not set yourself; for example, 3-D models rank chan
 | `volume_mode` | `"auto"` | 3-D: `volume`, `ortho`, `montage`, `projection` |
 | `volume_style` | `"voxels"` | 3-D volume rendering: `voxels`, `cutaway`, `glow` |
 | `projection` | `"max"` | `max`, `mean`, `meanabs` for `volume_mode="projection"` |
-| `volume_axes` | `"xyz"` | `xyz` (nibabel/MONAI `[X, Y, Z]`) or `dhw` (slice stack `[D, H, W]`) |
+| `volume_axes` | `"xyz"` | `xyz` (nibabel/MONAI `[X, Y, Z]`), `zyx` (nnU-Net / SimpleITK) or `dhw` (slice stack `[D, H, W]`) |
 | `voxel_spacing` | `None` | voxel size per spatial axis (tensor order), e.g. `(1, 1, 3)`; volumes are drawn to physical scale |
 | `flat_3d` | `False` | `True` / `"max"` / `"mean"`: draw 3-D stages as squashed 2-D projections |
 | `sliding_window` | `False` | trace one window, show the whole-volume output fused from all windows (needs `roi_size`) |
@@ -111,6 +125,7 @@ may adjust defaults you have not set yourself; for example, 3-D models rank chan
 | `roi_center` | foreground centre | voxel the traced window is centred on |
 | `sw_overlap` | `0.25` | sliding-window overlap |
 | `sw_max_mb` | `1500` | memory budget for fused logits (coarser accumulation grid above it) |
+| `aux_outputs` | `False` | keep deep-supervision outputs (nnU-Net's training heads); by default they are switched off |
 | `token_mode` | `"auto"` | `grid`, `heatmap`, `pca`, `l2`, `mean` |
 | `cls_tokens`, `patch_grid` | inferred | number of leading special tokens; `(rows, cols)` of patch tokens |
 | `channels_last` | inferred | force `[B, H, W, C]` interpretation |
@@ -132,6 +147,7 @@ may adjust defaults you have not set yourself; for example, 3-D models rank chan
 | option | default | meaning |
 |---|---|---|
 | `explain` | `None` | gradient explanations; `None` means on for cinematic, off otherwise |
+| `explain_max_mb` | `None` | skip explanations whose backward pass needs more activation memory than this; `None`: 80 % of the free RAM (or GPU memory) |
 | `front_page` | `"pca"` | front page of each stack: `pca` (all channels as RGB) or `channel` (strongest channel) |
 
 ### Capture and memory

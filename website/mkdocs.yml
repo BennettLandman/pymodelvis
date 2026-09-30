@@ -78,7 +78,9 @@ nav:
       - Movies: movies.md
       - 3-D models: volumes_3d.md
       - Slide deck: deck/index.md
-  - Real models: real_models.md
+  - Real models:
+      - Real models: real_models.md
+      - nnU-Net and TotalSegmentator: nnunet.md
   - Reference:
       - API: api.md
       - Troubleshooting: troubleshooting.md

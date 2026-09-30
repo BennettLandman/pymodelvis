@@ -87,6 +87,12 @@ windows, drawn to scale from the voxel spacing ([3-D models](docs/volumes_3d.md)
 
 ![UNETR on a synthetic head](examples/outputs/transformer3d_unetr.png)
 
+**nnU-Net, real weights.** Trained nnU-Net models load straight from their results folders, with
+nnU-Net's own preprocessing and sliding windows. Here TotalSegmentator's organ model segments a public
+CT, drawn level by level from encoder to decoder ([nnU-Net and TotalSegmentator](docs/nnunet.md)):
+
+![TotalSegmentator organs model on a CT](examples/outputs/nnunet_totalseg_organs.png)
+
 **Movies over changing inputs.** Stages, channels, colours and scales stay fixed across frames,
 so everything that moves is the network responding:
 
@@ -99,6 +105,7 @@ so everything that moves is the network responding:
 | [`movie_aging.mp4`](examples/outputs/movie_aging.mp4) | One synthetic subject ages while a lesion grows. Predicted brain age, lesion probability and the 3-D segmentation track it. |
 | [`movie_cxr_occlusion.mp4`](examples/outputs/movie_cxr_occlusion.mp4) | A grey patch slides over a chest X-ray. Cardiomegaly drops when the patch covers the heart. |
 | [`movie_sliding_window_unetr.mp4`](examples/outputs/movie_sliding_window_unetr.mp4) | 3-D inference: UNETR segments a whole head one window at a time while the fused segmentation assembles. |
+| [`movie_sliding_window_totalseg_organs.mp4`](examples/outputs/movie_sliding_window_totalseg_organs.mp4) | TotalSegmentator (nnU-Net) works through a CT window by window (27 windows of 128³, 14 shown). |
 
 **A slide deck made from these outputs.** [`docs/deck/neural_flow_deck.pptx`](docs/deck/neural_flow_deck.pptx)
 is a 15-slide PowerPoint deck with the four movies embedded. It shows what the package produces for
@@ -146,10 +153,15 @@ neural-flow render my_net.py:Net --weights best.pt -i x.npy --layers stem,layer2
 neural-flow movie resnet50 --pan panorama.jpg -o pan.mp4                  # camera pan
 neural-flow movie cxr --occlusion chest.png -o occlusion.mp4             # which region matters?
 neural-flow movie resnet50 --crossfade cat.jpg dog.jpg -o morph.mp4
+
+# a trained nnU-Net model (results folder), or TotalSegmentator on its example CT
+neural-flow render nnunet:$nnUNet_results/Dataset123_Liver -i case.nii.gz --sliding-window --style cinematic
+neural-flow render totalseg -i sample:ct --sliding-window --style cinematic
 ```
 
-Models can be built-in aliases (`resnet50`, `vit`, `swin_t`, `cxr`, `unest`, …), any
-`torchvision:NAME` or `timm:NAME`, a MONAI bundle (`monai:DIR`), a whole saved model (`model.pt`),
+Models can be built-in aliases (`resnet50`, `vit`, `swin_t`, `cxr`, `unest`, `totalseg`, …), any
+`torchvision:NAME` or `timm:NAME`, a MONAI bundle (`monai:DIR`), a trained nnU-Net model
+(`nnunet:RESULTS_DIR[:FOLD]`), a whole saved model (`model.pt`),
 or `file.py:Class`. Inputs can be images, NIfTI volumes, `.npy`/`.pt` tensors or
 `random:SHAPE`. Run `neural-flow <command> --help` for every option. The full walkthrough is in
 **[docs/cli.md](docs/cli.md)**.
@@ -205,11 +217,12 @@ All examples write to `examples/outputs/`. Figures, movies and the demo models' 
 | [`examples/transformer_3d.py`](examples/transformer_3d.py) | UNETR / Swin UNETR (MONAI), whole-head segmentation with sliding windows; `--movie`, `--flat` | trained on a synthetic head phantom | ~1.5 min (5–15 min first time) |
 | [`examples/movies.py`](examples/movies.py) | pan (ResNet / ViT), ageing subject | as above | 3–8 min each |
 | [`examples/monai_bundle.py`](examples/monai_bundle.py) | any MONAI bundle; default **MASI UNesT** whole-brain segmentation (133 structures), sliding windows | real (after `neural-flow fetch unest`) | a few min |
+| [`examples/nnunet_totalseg.py`](examples/nnunet_totalseg.py) | nnU-Net: **TotalSegmentator** on a public CT (3 mm total model, 1.5 mm organ model, sliding windows; `--movie`, `--results` for your own nnU-Net) | real (after `neural-flow fetch totalseg totalseg-organs`) | 2–7 min |
 | [`examples/extras.py`](examples/extras.py) | HTML explorer, 16:9 / light / SVG variants, light-up GIF | real | ~1 min |
 
 ```bash
 bash examples/run_all.sh                 # regenerate everything
-neural-flow fetch all                    # fetch ResNet-50, ViT, chest X-ray, UNesT + MNI152 (internet needed)
+neural-flow fetch all                    # ResNet-50, ViT, chest X-ray, UNesT + MNI152, TotalSegmentator + CT (internet needed)
 ```
 
 Details for each example: [docs/examples.md](docs/examples.md). Real models and MONAI bundles:
@@ -226,7 +239,8 @@ Details for each example: [docs/examples.md](docs/examples.md). Real models and 
 | [Examples](docs/examples.md) | what each example shows and how to run it |
 | [Movies](docs/movies.md) | `animate_inputs`, input sequences, what is held fixed |
 | [3-D models](docs/volumes_3d.md) | voxel spacing, UNETR / Swin UNETR / UNesT, sliding-window output, 3-D inference movies, flat view |
-| [Real models](docs/real_models.md) | checkout script, MONAI bundles, UNesT |
+| [Real models](docs/real_models.md) | checkout script, MONAI bundles, UNesT, nnU-Net |
+| [nnU-Net and TotalSegmentator](docs/nnunet.md) | nnU-Net U-Nets level by level, loading results folders, nnU-Net preprocessing, TotalSegmentator |
 | [Cinematic style](docs/cinematic.md) | the visual language and the maths behind beams, circles and lines |
 | [Stage selection](docs/stage_selection.md) | how the 5–12 stages are chosen |
 | [Tensor rendering](docs/tensor_rendering.md) | how 2-D, 3-D, token, vector and attention tensors become pictures |

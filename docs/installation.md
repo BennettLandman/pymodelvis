@@ -40,8 +40,8 @@ folder isn't on `PATH`. `python -m neural_flow …` always works.
 |---|---|---|
 | `examples` | `torchvision`, `timm`, `scikit-image`, `torchxrayvision` | the example scripts (ResNet, ViT, chest X-ray, sample photos) |
 | `animation` | `imageio`, `imageio-ffmpeg` | MP4 output (GIF works without it) |
-| `medical` | `monai`, `nibabel`, `einops`, `nilearn` | MONAI bundles (UNesT), NIfTI I/O, the MNI152 template |
-| `dev` | `pytest`, `torchvision`, `monai`, `nibabel` | running the tests (including the 3-D transformer tests) |
+| `medical` | `monai`, `nibabel`, `einops`, `nilearn`, `dynamic-network-architectures`, `scipy` | MONAI bundles (UNesT), nnU-Net models (TotalSegmentator), NIfTI I/O, the MNI152 template |
+| `dev` | `pytest`, `torchvision`, `monai`, `nibabel`, `dynamic-network-architectures`, `scipy` | running the tests (including the 3-D transformer and nnU-Net tests) |
 | `all` | everything above | |
 
 ```bash

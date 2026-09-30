@@ -24,10 +24,14 @@ from typing import Any, Dict, List, Optional
 
 EPILOG_MODELS = """model specifications:
   resnet50 | resnet18 | vit | vit_b_16 | swin_t | densenet121 | cxr | unest   built-in aliases
+  totalseg | totalseg-6mm         TotalSegmentator fast CT models (nnU-Net, 117 structures; downloaded once)
+  totalseg-organs                 TotalSegmentator 1.5 mm organ model (nnU-Net, 24 structures, 235 MB)
   torchvision:NAME[:WEIGHTS]      e.g. torchvision:efficientnet_b0, torchvision:resnet50:IMAGENET1K_V1
   timm:NAME                       e.g. timm:convnext_tiny
   xrv:WEIGHTS                     TorchXRayVision chest X-ray DenseNet (default densenet121-res224-all)
   monai:BUNDLE_DIR                a MONAI bundle directory
+  nnunet:RESULTS_DIR[:FOLD]       a trained nnU-Net v2 model (the Trainer__Plans__config folder, or its
+                                  Dataset folder); uses the plans' preprocessing, patch size and spacing
   path/to/file.py:ClassOrFactory  your own model (+ --model-args '{"in_ch": 1}' --weights ckpt.pt)
   package.module:ClassOrFactory   importable model class / factory
   path/to/model.pt                a whole model saved with torch.save(model)
@@ -38,6 +42,7 @@ input specifications (-i/--input):
   tensor.npy | tensor.pt          a ready tensor
   random:1,3,224,224              random tensor (smoke test)
   sample:cat | sample:cxr         bundled cat photo / public NIH chest X-ray
+  sample:ct                       TotalSegmentator's example CT (3 mm, thorax to pelvis)
   name=SPEC                       named input for multi-input models (repeat -i)
 """
 
@@ -103,7 +108,7 @@ def _add_view_args(p: argparse.ArgumentParser, movie: bool = False) -> None:
                    default=None)
     s.add_argument("--max-channels", type=int, default=None)
     s.add_argument("--volume-mode", choices=["auto", "volume", "ortho", "montage", "projection"], default=None)
-    s.add_argument("--volume-axes", choices=["xyz", "dhw"], default=None)
+    s.add_argument("--volume-axes", choices=["xyz", "zyx", "dhw"], default=None)
     o = p.add_argument_group("outputs and explanations")
     o.add_argument("--class-names", default=None,
                    help="'imagenet', a .txt (one per line) / .json file, or a comma-separated list")
@@ -147,11 +152,20 @@ def _config_kwargs(a, lm) -> Dict[str, Any]:
         kw["voxel_spacing"] = tuple(a._spacing)
     if getattr(a, "flat_3d", None):
         kw["flat_3d"] = a.flat_3d
+    if lm.volume_axes and "volume_axes" not in kw:
+        kw["volume_axes"] = lm.volume_axes
+    if lm.info.get("results") and not kw.get("title"):
+        i = lm.info
+        kw["title"] = f"{lm.name} · nnU-Net {i['configuration']}"
+        kw.setdefault("subtitle", f"{i['architecture']} · fold {i['fold']} · patch {'×'.join(map(str, i['patch_size']))}"
+                                  f" · {'×'.join(f'{v:g}' for v in i['spacing'])} mm · {i['n_classes'] - 1} structures")
     if getattr(a, "sliding_window", False):
         kw["sliding_window"] = True
         kw["roi_size"] = _roi(a, lm)
         if a.sw_overlap is not None:
             kw["sw_overlap"] = a.sw_overlap
+        elif lm.sw_overlap is not None:
+            kw["sw_overlap"] = lm.sw_overlap
         if a.roi_center:
             kw["roi_center"] = tuple(a.roi_center)
     for item in getattr(a, "set", []) or []:
@@ -377,7 +391,7 @@ def _movie_inference(a, lm, t0) -> int:
     kw.setdefault("dpi", 120)
     style = kw.pop("style", "cinematic")
     out = a.output or _default_out(a, "_inference.mp4")
-    sliding_window_movie(lm.model, x, _roi(a, lm), output=out, overlap=a.sw_overlap if a.sw_overlap is not None else 0.25,
+    sliding_window_movie(lm.model, x, _roi(a, lm), output=out, overlap=a.sw_overlap if a.sw_overlap is not None else (lm.sw_overlap or 0.25),
                          max_windows=a.max_windows, fps=a.fps if a.fps != 8 else 3, style=style, hold_last=a.hold,
                          progress=not a.quiet, **kw)
     print(f"wrote {out}  ({time.time() - t0:.0f}s)")
@@ -433,7 +447,7 @@ def cmd_demo(a) -> int:
 def cmd_fetch(a) -> int:
     from . import zoo
 
-    what = ["resnet50", "vit", "cxr", "unest"] if "all" in a.what else a.what
+    what = ["resnet50", "vit", "cxr", "unest", "totalseg"] if "all" in a.what else a.what
     for w in what:
         if w == "resnet50":
             print(zoo.fetch("resnet50_ram-a26f946b.pth"))
@@ -442,6 +456,11 @@ def cmd_fetch(a) -> int:
         elif w == "cxr":
             zoo.load_model("cxr")
             print(zoo.cxr_sample_path())
+        elif w in ("totalseg", "totalseg-6mm", "totalseg-organs"):
+            from .nnunet import ct_sample_path, find_results
+
+            print(find_results(w))
+            print(ct_sample_path())
         elif w == "unest":
             dest = zoo.fetch_bundle(zoo.UNEST_BUNDLE)
             print(dest)
@@ -549,7 +568,7 @@ def build_parser() -> argparse.ArgumentParser:
     d.set_defaults(func=cmd_demo)
 
     f = sub.add_parser("fetch", help="download weights / bundles into the cache")
-    f.add_argument("what", nargs="+", choices=["resnet50", "vit", "cxr", "unest", "all"])
+    f.add_argument("what", nargs="+", choices=["resnet50", "vit", "cxr", "unest", "totalseg", "totalseg-6mm", "totalseg-organs", "all"])
     f.set_defaults(func=cmd_fetch)
 
     ml = sub.add_parser("models", help="list model aliases and weight locations")

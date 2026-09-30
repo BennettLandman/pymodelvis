@@ -45,9 +45,10 @@ FIGURES = [
     "medical_3d_cinematic_thick.png",
     "transformer3d_unetr.png", "transformer3d_unetr_flat.png", "transformer3d_swinunetr.png",
     "monai_bundle_cinematic.png",
+    "nnunet_totalseg.png", "nnunet_totalseg_organs.png",
 ]
 MOVIES = ["movie_pan_resnet.mp4", "movie_pan_vit.mp4", "movie_aging.mp4", "movie_cxr_occlusion.mp4",
-          "movie_sliding_window_unetr.mp4"]
+          "movie_sliding_window_unetr.mp4", "movie_sliding_window_totalseg_organs.mp4"]
 
 # docs that are not pages on the site (the landing page replaces the docs index)
 SKIP_DOCS = {"README.md"}

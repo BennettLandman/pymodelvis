@@ -27,10 +27,11 @@ class FlowConfig:
     volume_mode: str = "auto"                        # auto | volume | ortho | montage | projection
     projection: str = "max"                          # max | mean | meanabs
     volume_style: str = "voxels"                     # voxels (solid strong voxels in a translucent block) | cutaway | glow
-    volume_axes: str = "xyz"                         # xyz (nibabel/MONAI [X,Y,Z]) | dhw (torch slice stack [D,H,W])
+    volume_axes: str = "xyz"                         # xyz (nibabel/MONAI [X,Y,Z]) | zyx (nnU-Net) | dhw (torch slice stack [D,H,W])
     voxel_spacing: Optional[Tuple[float, ...]] = None  # input voxel size per spatial dim (tensor order), e.g. (1, 1, 5) mm
     physical_fov: Optional[Tuple[float, float, float]] = None  # set automatically from voxel_spacing
     flat_3d: Union[bool, str] = False                # draw 3-D stages as flattened 2-D maps: False | True/"max" | "mean"
+    aux_outputs: bool = False                        # keep deep-supervision outputs (nnU-Net training heads)
     sliding_window: bool = False                     # trace one ROI patch, show the whole-volume fused output
     roi_size: Optional[Tuple[int, ...]] = None       # sliding-window patch size, e.g. (96, 96, 96)
     roi_center: Optional[Tuple[int, ...]] = None     # voxel the traced patch is centred on (default: foreground centre)
@@ -53,6 +54,7 @@ class FlowConfig:
     # ---------------- capture / memory ----------------
     capture_device: str = "cpu"
     max_capture_mb: float = 500.0
+    explain_max_mb: Optional[float] = None           # skip explanations whose backward pass needs more (None: auto, from free RAM)
     max_spatial_2d: int = 128
     max_spatial_3d: int = 48
     max_input_2d: int = 256

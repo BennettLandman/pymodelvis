@@ -68,7 +68,20 @@ def _user_set(kw: Dict[str, Any]) -> set:
 
 
 def trace_model(model: nn.Module, inputs: Any, config: Optional[FlowConfig] = None, **kw) -> FlowResult:
-    """Instrument ``model`` on ``inputs`` and compute stage summaries (no drawing)."""
+    """Instrument ``model`` on ``inputs`` and compute stage summaries (no drawing).
+
+    Deep supervision (nnU-Net's extra low-resolution training outputs) is switched
+    off for the duration unless ``aux_outputs=True``; the model is restored afterwards.
+    """
+    cfg0 = make_config(config, **kw)
+    with _adapters.inference_view(model, keep_aux=cfg0.aux_outputs) as switched:
+        res = _trace_model(model, inputs, config, **kw)
+    if switched:
+        res.notes.append("deep supervision switched off (inference view): only the full-resolution output is shown")
+    return res
+
+
+def _trace_model(model: nn.Module, inputs: Any, config: Optional[FlowConfig] = None, **kw) -> FlowResult:
     user = _user_set(kw)
     cfg = make_config(config, **kw)
     if cfg.sliding_window:

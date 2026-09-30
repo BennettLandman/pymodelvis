@@ -187,6 +187,14 @@ animate_inputs(model, frames, output=<s>"pan.mp4"</s>)</pre>
         <figcaption><strong>UNETR · whole-head segmentation</strong>The transformer runs on a 4 × 4 × 4 token grid; its
           taps bridge to the decoder levels. <a class="nf-link" href="{{ 'volumes_3d/' | url }}">3-D models →</a></figcaption>
       </figure>
+      <figure class="nf-shot nf-shot--wide" style="margin-top:1.6rem">
+        <a class="nf-zoom" href="{{ 'media/nnunet_totalseg_organs.webp' | url }}"
+           data-caption="TotalSegmentator's 1.5 mm organ model (nnU-Net) on a public CT: six encoder levels, the decoder climbing back to 128³, and the whole CT fused from 27 windows.">
+          <img loading="lazy" src="{{ 'media/nnunet_totalseg_organs.webp' | url }}" alt="nnU-Net activation flow on a CT, TotalSegmentator organ model">
+        </a>
+        <figcaption><strong>nnU-Net · TotalSegmentator on a CT</strong>A trained nnU-Net loaded from its results folder, with
+          nnU-Net's own preprocessing and sliding windows. <a class="nf-link" href="{{ 'nnunet/' | url }}">nnU-Net →</a></figcaption>
+      </figure>
       <div class="nf-term" style="margin-top:1.6rem">
         <div class="nf-term__bar"><i></i><i></i><i></i><span>terminal</span></div>
 <pre><span class="c"># MASI UNesT, 133 brain structures, whole brain from sliding windows</span>
@@ -194,7 +202,11 @@ animate_inputs(model, frames, output=<s>"pan.mp4"</s>)</pre>
 <b>$</b> neural-flow render unest -i T1_mni.nii.gz --sliding-window --style cinematic
 
 <span class="c"># watch 3-D inference, window by window</span>
-<b>$</b> neural-flow movie unest --inference T1_mni.nii.gz --max-windows 16</pre>
+<b>$</b> neural-flow movie unest --inference T1_mni.nii.gz --max-windows 16
+
+<span class="c"># any trained nnU-Net, or TotalSegmentator on its example CT</span>
+<b>$</b> neural-flow render nnunet:$nnUNet_results/Dataset123_Liver -i case.nii.gz --sliding-window
+<b>$</b> neural-flow render totalseg -i sample:ct --sliding-window --style cinematic</pre>
       </div>
     </div>
   </section>
@@ -214,6 +226,7 @@ animate_inputs(model, frames, output=<s>"pan.mp4"</s>)</pre>
           ("movie_cxr_occlusion", "Occlusion · chest X-ray", "A grey patch slides over the radiograph. Cardiomegaly drops when the patch covers the heart."),
           ("movie_pan_vit", "Camera pan · ViT-B/16", "The same four photographs through a vision transformer, token grids and all."),
           ("movie_sliding_window_unetr", "3-D inference · UNETR", "One sliding window per frame: the stages follow the window through the head while the whole-head segmentation assembles."),
+          ("movie_sliding_window_totalseg_organs", "3-D inference · nnU-Net on CT", "TotalSegmentator's organ model works through a CT window by window (27 windows of 128³) while the organs assemble."),
         ] %}
         {% for stem, title, text in movies %}
         <figure class="nf-movie">

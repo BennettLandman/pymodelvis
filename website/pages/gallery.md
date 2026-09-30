@@ -116,6 +116,27 @@ neural-flow render unest -i T1_mni.nii.gz --sliding-window --style cinematic    
 
 See [3-D models](volumes_3d.md).
 
+## nnU-Net: TotalSegmentator on a CT
+
+Real TotalSegmentator weights (nnU-Net v2) on its public example CT, with nnU-Net's own preprocessing
+and sliding windows. Encoder levels bridge to the decoder levels of the same resolution.
+
+<div class="nf-gallery-page" markdown>
+
+![TotalSegmentator organs, 1.5 mm, 27 windows](media/nnunet_totalseg_organs.webp){ .nf-wide }
+
+![TotalSegmentator total, fast 3 mm model, 117 structures](media/nnunet_totalseg.webp){ .nf-wide }
+
+</div>
+
+```bash
+neural-flow fetch totalseg totalseg-organs
+neural-flow render totalseg-organs -i sample:ct --sliding-window --style cinematic
+neural-flow render nnunet:path/to/results_folder -i case.nii.gz --sliding-window   # your nnU-Net
+```
+
+See [nnU-Net and TotalSegmentator](nnunet.md).
+
 ## Multi-input, multi-head
 
 An MRI volume and a clinical vector → lesion segmentation, lesion probability and brain age.
@@ -158,6 +179,11 @@ Stages, channels, colours and scales are fixed across frames. See [Movies](movie
 <figure class="nf-movie" markdown>
 <video muted loop playsinline controls preload="none" poster="../media/movie_sliding_window_unetr_poster.webp"><source src="../media/movie_sliding_window_unetr.mp4" type="video/mp4"></video>
 <figcaption>3-D inference, UNETR, window by window</figcaption>
+</figure>
+
+<figure class="nf-movie" markdown>
+<video muted loop playsinline controls preload="none" poster="../media/movie_sliding_window_totalseg_organs_poster.webp"><source src="../media/movie_sliding_window_totalseg_organs.mp4" type="video/mp4"></video>
+<figcaption>3-D inference, nnU-Net (TotalSegmentator) on a CT</figcaption>
 </figure>
 
 </div>

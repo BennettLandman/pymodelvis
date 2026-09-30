@@ -1,5 +1,30 @@
 # Changelog
 
+## 0.3.0 (2026-09-30)
+
+nnU-Net.
+
+* **nnU-Net U-Nets level by level.** Networks built by `dynamic_network_architectures`
+  (`PlainConvUNet`, `ResidualEncoderUNet`) are recognised by structure and drawn as a complete U: stem,
+  encoder levels, bottleneck, one stage per decoder level (upsampling and skip concatenation folded
+  into its edges) and the full-resolution segmentation layer as the only head. Previously the decoder
+  was mostly missing.
+* **Deep supervision off at inference.** Networks with `deep_supervision=True` are run with it switched
+  off (and restored), so only the full-resolution prediction is drawn; `aux_outputs=True` keeps the rest.
+* **Trained nnU-Net models.** `nnunet:RESULTS_DIR[:FOLD]` (CLI and `zoo.load_model`) rebuilds the network
+  from `plans.json` (old and current formats), loads the fold's checkpoint and applies nnU-Net's
+  preprocessing (RAS, cropping, CT / z-score normalisation, resampling), patch size, spacing and
+  50 % window overlap. nnU-Net itself is not required.
+* **TotalSegmentator.** `totalseg`, `totalseg-6mm` and `totalseg-organs` download its public CT models;
+  `sample:ct` its example CT. Tested against TotalSegmentator's own reference segmentation (Dice 0.95–0.98).
+* New example `examples/nnunet_totalseg.py` (figures and a sliding-window movie), docs page
+  [nnU-Net and TotalSegmentator](docs/nnunet.md), tests `tests/test_nnunet.py`.
+* `volume_axes="zyx"` for nnU-Net / SimpleITK order.
+* Many-label 3-D segmentations: only structures that enclose others (scalp, skull, white matter) are
+  drawn as glass, so solid organs stay opaque; the whole-volume output card grows with the depth of the U.
+* Gradient explanations are skipped with a note, instead of running out of memory, when their
+  backward pass would not fit (`explain_max_mb`).
+
 ## 0.2.0 (2026-09-29)
 
 3-D transformer networks and whole-volume inference.

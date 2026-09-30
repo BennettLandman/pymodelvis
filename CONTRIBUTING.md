@@ -35,8 +35,9 @@ See [website/README.md](website/README.md).
 ## Adding support for an architecture family
 
 Subclass `neural_flow.adapters.Adapter` (`match`, `defaults`, `concepts`) and register it with
-`neural_flow.adapters.register_adapter`. See `neural_flow/adapters/` for the CNN, U-Net,
-transformer and 3-D adapters.
+`neural_flow.adapters.register_adapter`. An adapter may also propose the stages itself (`select`) and
+attach roles (`annotate`). See `neural_flow/adapters/` for the CNN, U-Net, transformer, transformer
+U-Net, nnU-Net and 3-D adapters.
 
 ## Reporting a problem
 

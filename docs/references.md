@@ -29,6 +29,17 @@
 * Huo Y, Xu Z, Xiong Y, Aboud K, Parvathaneni P, Bao S, Bermudez C, Resnick SM, Cutting LE, Landman BA.
   *3D whole brain segmentation using spatially localized atlas network tiles.* NeuroImage 194:105–119, 2019.
 * Vaswani A, et al. *Attention is all you need.* NeurIPS 2017.
+* Isensee F, Jaeger PF, Kohl SAA, Petersen J, Maier-Hein KH. *nnU-Net: a self-configuring method for deep
+  learning-based biomedical image segmentation.* Nature Methods 18:203–211, 2021.
+  [doi:10.1038/s41592-020-01008-z](https://doi.org/10.1038/s41592-020-01008-z) ·
+  [code](https://github.com/MIC-DKFZ/nnUNet) (the `PlainConvUNet` of the TotalSegmentator figures)
+* Isensee F, Wald T, Ulrich C, Baumgartner M, Roy S, Maier-Hein K, Jaeger PF. *nnU-Net revisited: a call for
+  rigorous validation in 3D medical image segmentation.* MICCAI 2024.
+  [arXiv:2404.09556](https://arxiv.org/abs/2404.09556) (residual-encoder nnU-Nets, `ResidualEncoderUNet`)
+* Wasserthal J, Breit HC, Meyer MT, Pradella M, Hinck D, Sauter AW, Heye T, Boll DT, Cyriac J, Yang S, Bach M,
+  Segeroth M. *TotalSegmentator: robust segmentation of 104 anatomic structures in CT images.* Radiology:
+  Artificial Intelligence 5(5):e230024, 2023. [doi:10.1148/ryai.230024](https://doi.org/10.1148/ryai.230024) ·
+  [PubMed 37795137](https://pubmed.ncbi.nlm.nih.gov/37795137) · [code](https://github.com/wasserth/TotalSegmentator)
 
 ## Explanation and visualization methods
 
@@ -59,6 +70,11 @@
 * Abraham A, et al. *Machine learning for neuroimaging with scikit-learn.* Frontiers in Neuroinformatics 8:14,
   2014 (nilearn).
 * van der Walt S, et al. *scikit-image: Image processing in Python.* PeerJ 2014 (sample photographs).
+* *dynamic-network-architectures* (MIC-DKFZ), the network implementations nnU-Net v2 builds from its plans.
+  https://github.com/MIC-DKFZ/dynamic-network-architectures (Apache-2.0)
+* TotalSegmentator weights (GitHub release `v2.0.0-weights`, models `Dataset297` total 3 mm and `Dataset291`
+  organs 1.5 mm, Apache-2.0) and its example CT (`tests/reference_files/example_ct.nii.gz`, 3 mm,
+  thorax to pelvis) with the reference segmentation used by the tests. https://github.com/wasserth/TotalSegmentator
 * Paszke A, et al. *PyTorch: An imperative style, high-performance deep learning library.* NeurIPS 2019.
 
 ## Demo models by example
@@ -74,6 +90,8 @@
 | `transformer3d_unetr*`, `movie_sliding_window_unetr` | MONAI UNETR | trained here on synthetic heads | Hatamizadeh 2022 (UNETR); Cardoso 2022 (MONAI) |
 | `transformer3d_swinunetr*` | MONAI Swin UNETR | trained here on synthetic heads | Hatamizadeh 2022 (Swin UNETR); Tang 2022; Liu 2021 |
 | `neural-flow render unest …` | UNesT (MONAI bundle `wholeBrainSeg_Large_UNEST_segmentation`) | MONAI model zoo (133 structures) | Yu 2023 (UNesT); Zhang 2022 (NesT); Huo 2019 |
+| `nnunet_totalseg` | nnU-Net `PlainConvUNet` (TotalSegmentator total, fast, 3 mm, 117 structures) | TotalSegmentator `Dataset297`, fold 0 | Wasserthal 2023; Isensee 2021 |
+| `nnunet_totalseg_organs`, `movie_sliding_window_totalseg_organs` | nnU-Net `PlainConvUNet` (TotalSegmentator organs, 1.5 mm, 24 structures) | TotalSegmentator `Dataset291`, fold 0 | Wasserthal 2023; Isensee 2021 |
 | movies with `--inference` | any 3-D model | — | Isensee 2021 (sliding-window fusion) |
 
 The synthetic data generators (`examples/synthetic.py`) are part of this project and need no citation.

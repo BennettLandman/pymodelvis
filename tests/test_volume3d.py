@@ -214,3 +214,25 @@ def test_cli_sliding_window_and_spacing_from_nifti(tmp_path):
     out2 = tmp_path / "f.png"
     assert main(["render", f"{net}:Net", "-i", str(p), "--flat-3d", "-o", str(out2), "--dpi", "35", "-q",
                  "--no-explain"]) == 0
+
+
+def test_glass_only_for_enclosing_labels():
+    from neural_flow.raster import _glass_alpha
+
+    pytest.importorskip("scipy")
+    lab = np.zeros((40, 40, 40), np.int64)
+    zz, yy, xx = np.indices(lab.shape)
+    r = np.sqrt((zz - 20) ** 2 + (yy - 20) ** 2 + (xx - 20) ** 2)
+    lab[(r > 14) & (r <= 17)] = 1            # a shell (scalp-like) around …
+    lab[r <= 5] = 2                          # … a small inner structure
+    lab[2:8, 2:8, 2:8] = 3                   # a solid structure outside
+    a = _glass_alpha(lab, np.array([1, 2, 3]))
+    assert a[lab == 1].max() < 0.2           # the enclosing shell is glass
+    assert a[lab == 2].min() == pytest.approx(0.9) and a[lab == 3].min() == pytest.approx(0.9)
+
+
+def test_explanations_skipped_when_too_big():
+    res = trace_model(TinySeg3D().eval(), torch.randn(1, 1, 32, 32, 32), style="cinematic", explain=True,
+                      explain_max_mb=0.001)
+    assert any("explanations skipped" in n for n in res.notes)
+    assert not res.explanation.units

@@ -126,10 +126,28 @@ class SlidingWindowState:
     acc: Dict[str, torch.Tensor] = field(default_factory=dict)    # [C, *S/f] weighted logits
     weight: Dict[str, torch.Tensor] = field(default_factory=dict)  # [*S/f] weights
     done: int = 0
+    frozen: Dict[str, torch.Tensor] = field(default_factory=dict)  # snapshots: fused output, compact dtype
+
+    def names(self) -> List[str]:
+        return list(self.acc) + [k for k in self.frozen if k not in self.acc]
+
+    def snapshot(self) -> "SlidingWindowState":
+        """A small copy holding only the fused outputs (labels as uint8 / int16), for movies."""
+        frozen = {}
+        for k in self.acc:
+            t = self.fused(k)
+            if not t.is_floating_point():
+                t = t.to(torch.uint8 if int(t.max()) < 256 else torch.int16)
+            frozen[k] = t
+        return SlidingWindowState(self.spatial, self.roi, self.starts, dict(self.factor), done=self.done,
+                                  frozen=frozen)
 
     def fused(self, name: str, as_labels: bool = True) -> torch.Tensor:
         """Current fused output at full resolution: labels [1, 1, *S] (int) for multi-class outputs,
         probabilities / values [1, 1, *S] for single-channel outputs.  Unvisited voxels are 0."""
+        if name in self.frozen and name not in self.acc:
+            t = self.frozen[name]
+            return t if t.is_floating_point() else t.to(torch.int32)
         acc, w = self.acc[name], self.weight[name]
         seen = w > 0
         avg = acc / w.clamp_min(1e-8)
@@ -177,6 +195,10 @@ def sliding_window_infer(model, x: torch.Tensor, roi: Sequence[int], overlap: fl
     st = SlidingWindowState(S, roi, starts)
     was_training = model.training
     model.eval()
+    from .adapters import inference_view
+
+    view = inference_view(model)
+    view.__enter__()
     try:
         for i, s0 in enumerate(starts):
             patch = crop(x, s0, roi).to(dev)
@@ -219,6 +241,7 @@ def sliding_window_infer(model, x: torch.Tensor, roi: Sequence[int], overlap: fl
         if progress:
             print()
     finally:
+        view.__exit__(None, None, None)
         model.train(was_training)
     return st
 
@@ -276,7 +299,7 @@ def apply_fused_outputs(res, st: SlidingWindowState, x: torch.Tensor, s0: Tuple[
     cfg = res.config
     S = tuple(x.shape[2:])
     for key, ov in list(res.views.items()):
-        if ov.kind != "segmentation" or ov.name not in st.acc:
+        if ov.kind != "segmentation" or ov.name not in st.names():
             continue
         fused = st.fused(ov.name)
         nv = interpret_output(ov.name, fused, None, cfg.updated(output_types={ov.name: "segmentation"}),
@@ -284,9 +307,11 @@ def apply_fused_outputs(res, st: SlidingWindowState, x: torch.Tensor, s0: Tuple[
         nv.title = ov.title
         n = len(st.starts)
         m = nv.mask
+        if m is not None and m.dtype.kind in "iu" and m.size and int(m.max()) < 256 and int(m.min()) >= 0:
+            nv.mask = m = m.astype(np.uint8)                   # whole-volume labels: keep them small
         n_lab = int(len(np.unique(m))) if m is not None and m.dtype.kind in "iu" else None
         head = f"{n_lab} labels" if n_lab is not None else nv.subline.split(" · ")[0]
-        nv.subline = f"{head} · window {st.done}/{n}" if not final else f"{head} · fused from {n} windows"
+        nv.subline = f"{head} · window {st.done}/{n}" if not final else f"{head} · fused from {n} window{'s' if n != 1 else ''}"
         res.views[key] = nv
     lo = tuple(s0)
     hi = tuple(a + r for a, r in zip(s0, st.roi))
@@ -305,6 +330,8 @@ def _canon_idx(p: Sequence[int], S: Sequence[int], axes: str) -> Tuple[int, int,
     if axes == "dhw":
         d, h, w = p
         return (w, S[1] - h, d)
+    if axes == "zyx":
+        return (int(p[2]), int(p[1]), int(p[0]))
     return tuple(int(v) for v in p)
 
 
@@ -339,9 +366,7 @@ def sliding_window_movie(model, volume: torch.Tensor, roi: Sequence[int], output
 
     def cb(i, s0, st):
         if i in shown:
-            snaps[i] = SlidingWindowState(st.spatial, st.roi, st.starts, dict(st.factor),
-                                          {k: v.clone() for k, v in st.acc.items()},
-                                          {k: v.clone() for k, v in st.weight.items()}, st.done)
+            snaps[i] = st.snapshot()                    # fused labels only: small even for many classes
 
     sliding_window_infer(model, volume, roi, overlap, kw.pop("sw_max_mb", 1500.0), callback=cb)
     frames = [crop(volume, starts[i], roi) for i in shown]
@@ -500,7 +525,7 @@ def flatten_views(res) -> None:
 
 
 def _canon_shape(sp: Sequence[int], axes: str) -> Tuple[int, int, int]:
-    return (sp[2], sp[1], sp[0]) if axes == "dhw" else tuple(sp)
+    return (sp[2], sp[1], sp[0]) if axes in ("dhw", "zyx") else tuple(sp)
 
 
 def _box(m: np.ndarray):

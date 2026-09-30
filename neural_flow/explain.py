@@ -139,6 +139,14 @@ def compute_explanations(model: nn.Module, prep: PreparedInputs, res, max_units:
         return ex
     in_name, x0 = img_inputs[0]
     in_key = f"input:{in_name}"
+    need = _backward_mb(res.trace)
+    limit = cfg.explain_max_mb if cfg.explain_max_mb is not None else _auto_limit_mb(x0.device)
+    if limit is not None and need > limit:
+        msg = (f"explanations skipped: the backward pass needs ≈{need / 1024:.1f} GB of activations, more than the "
+               f"{limit / 1024:.1f} GB allowed (set explain_max_mb / --set explain_max_mb=… to force)")
+        warnings.warn("neural_flow: " + msg)
+        ex.notes.append(msg)
+        return ex
     x = x0.detach().clone().requires_grad_(True)
     args = _replace(prep.args, x0, x)
     kwargs = _replace(prep.kwargs, x0, x)
@@ -183,6 +191,45 @@ def compute_explanations(model: nn.Module, prep: PreparedInputs, res, max_units:
             h.remove()
         model.train(was_training)
     return ex
+
+
+def _backward_mb(trace) -> float:
+    """Rough memory of the gradient pass: every leaf module's output, plus 30 % for the gradients."""
+    tot = 0
+    for c in trace.calls.values():
+        if c.is_leaf_module and c.out_shapes:
+            tot += int(np.prod(c.out_shapes[0])) * 4
+    return 1.3 * tot / 2 ** 20
+
+
+def _auto_limit_mb(device) -> Optional[float]:
+    """80 % of the memory available now (GPU: free device memory)."""
+    try:
+        if device.type == "cuda":
+            free, _ = torch.cuda.mem_get_info(device)
+            return 0.8 * free / 2 ** 20
+        if device.type != "cpu":
+            return None
+    except Exception:
+        return None
+    try:
+        import psutil
+
+        return 0.8 * psutil.virtual_memory().available / 2 ** 20
+    except Exception:
+        pass
+    try:
+        for line in open("/proc/meminfo"):
+            if line.startswith("MemAvailable:"):
+                return 0.8 * int(line.split()[1]) / 1024
+    except Exception:
+        pass
+    try:
+        import os
+
+        return 0.5 * os.sysconf("SC_PAGE_SIZE") * os.sysconf("SC_PHYS_PAGES") / 2 ** 20
+    except Exception:
+        return None
 
 
 def _spatial_pred(g, key: str) -> Optional[str]:

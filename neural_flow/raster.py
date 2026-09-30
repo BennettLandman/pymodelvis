@@ -80,7 +80,7 @@ def canonical_fov(spatial: Sequence[int], spacing: Optional[Sequence[float]], ax
     if sp is None:
         return None
     fov = [float(n) * float(d) for n, d in zip(spatial, sp)]
-    if axes == "dhw":
+    if axes in ("dhw", "zyx"):
         fov = [fov[2], fov[1], fov[0]]
     return tuple(fov)
 
@@ -405,9 +405,12 @@ def render_seq1d(summ: TensorSummary, cfg: FlowConfig) -> Visual:
 def canonical_volume(v: np.ndarray, axes: str = "xyz") -> np.ndarray:
     """Return V[x, y, z] with x = left→right, y = posterior→anterior, z = inferior→superior.
 
-    ``axes="xyz"`` (default) assumes nibabel/MONAI order; ``"dhw"`` assumes a
+    ``axes="xyz"`` (default) assumes nibabel/MONAI order; ``"zyx"`` is the same
+    volume with the axes reversed (nnU-Net / SimpleITK order); ``"dhw"`` assumes a
     torch/DICOM slice stack ``[D(slices, inf→sup), H(rows, ant→post), W(cols)]``.
     """
+    if axes == "zyx":
+        return np.ascontiguousarray(np.transpose(v, (2, 1, 0)))
     if axes == "dhw":
         return np.ascontiguousarray(np.transpose(v, (2, 1, 0))[:, ::-1, :])
     return v
@@ -483,6 +486,9 @@ def _blockify(V: np.ndarray, target: int = 36, gap: Optional[bool] = None):
     return U, mask, f
 
 
+_RAY_CHUNK = 4_000_000          # samples per ray-casting chunk (memory bound)
+
+
 def raycast(alpha_vol: np.ndarray, rgb_vol: np.ndarray, extent_shape, size: int = 150, azim: float = 35.0,
             elev: float = 22.0, shade: bool = True, wire: bool = True, ref_steps: float = 36.0,
             depth_cue: float = 0.25, sub_boxes: Optional[Sequence] = None) -> RGBA:
@@ -500,33 +506,37 @@ def raycast(alpha_vol: np.ndarray, rgb_vol: np.ndarray, extent_shape, size: int 
     us = np.linspace(-r, r, size, dtype=np.float32)
     vs = np.linspace(r, -r, size, dtype=np.float32)
     ts = np.linspace(-r, r, T, dtype=np.float32)
-    U, Vv, Tt = np.meshgrid(us, vs, ts, indexing="ij")
-    P = U[..., None] * right + Vv[..., None] * up + Tt[..., None] * fwd
-    g = P / ext
-    grid = torch.as_tensor(np.stack([g[..., 2], g[..., 1], g[..., 0]], -1), dtype=torch.float32)
-    grid = grid.permute(2, 1, 0, 3)[None]
-    s = F.grid_sample(vol, grid, mode="bilinear", padding_mode="zeros", align_corners=True)[0]
-    a = s[0].clamp(0, 1)
-    rgb = s[1:4]
-    if shade:
-        n = -s[4:7]
-        nn_ = (n * n).sum(0, keepdim=True).sqrt().clamp_min(1e-6)
-        n = n / nn_
-        light = torch.as_tensor(-fwd * 0.75 + up * 0.55 - right * 0.35, dtype=torch.float32)
-        light = light / torch.linalg.norm(light)
-        lam = (n * light[:, None, None, None]).sum(0).clamp(0, 1)
-        has_grad = (nn_[0] > 1e-3).float()
-        rgb = rgb * (0.62 + 0.38 * (lam * has_grad + (1 - has_grad)))
+    light = torch.as_tensor(-fwd * 0.75 + up * 0.55 - right * 0.35, dtype=torch.float32)
+    light = light / torch.linalg.norm(light)
     depth = torch.linspace(0, 1, T)[:, None, None]
-    rgb = rgb * (1.0 - depth_cue * depth)
-    a = 1 - (1 - a).clamp(0, 1) ** (ref_steps / T)
-    trans = torch.cumprod(torch.cat([torch.ones_like(a[:1]), 1 - a[:-1]], 0), 0)
-    w = trans * a
-    col = (w[None] * rgb).sum(1)
-    A = w.sum(0).clamp(0, 1)
     out = np.zeros((size, size, 4), np.float32)
-    out[..., :3] = (col / A.clamp_min(1e-6)).permute(1, 2, 0).numpy()
-    out[..., 3] = A.numpy()
+    # image columns in chunks, so memory stays bounded (≈ 4 M samples per chunk) for big cards / volumes
+    step = max(1, int(_RAY_CHUNK // max(size * T, 1)))
+    for c0 in range(0, size, step):
+        uc = us[c0:c0 + step]
+        U, Vv, Tt = np.meshgrid(uc, vs, ts, indexing="ij")
+        P = U[..., None] * right + Vv[..., None] * up + Tt[..., None] * fwd
+        g = P / ext
+        grid = torch.as_tensor(np.stack([g[..., 2], g[..., 1], g[..., 0]], -1), dtype=torch.float32)
+        grid = grid.permute(2, 1, 0, 3)[None]                        # [1, T, rows, cols, 3]
+        s = F.grid_sample(vol, grid, mode="bilinear", padding_mode="zeros", align_corners=True)[0]
+        a = s[0].clamp(0, 1)
+        rgb = s[1:4]
+        if shade:
+            n = -s[4:7]
+            nn_ = (n * n).sum(0, keepdim=True).sqrt().clamp_min(1e-6)
+            n = n / nn_
+            lam = (n * light[:, None, None, None]).sum(0).clamp(0, 1)
+            has_grad = (nn_[0] > 1e-3).float()
+            rgb = rgb * (0.62 + 0.38 * (lam * has_grad + (1 - has_grad)))
+        rgb = rgb * (1.0 - depth_cue * depth)
+        a = 1 - (1 - a).clamp(0, 1) ** (ref_steps / T)
+        trans = torch.cumprod(torch.cat([torch.ones_like(a[:1]), 1 - a[:-1]], 0), 0)
+        w = trans * a
+        col = (w[None] * rgb).sum(1)                                  # [3, rows, cols]
+        A = w.sum(0).clamp(0, 1)
+        out[:, c0:c0 + len(uc), :3] = (col / A.clamp_min(1e-6)).permute(1, 2, 0).numpy()
+        out[:, c0:c0 + len(uc), 3] = A.numpy()
     if wire:
         _draw_box(out, ext, right, up, fwd, r, size)
     for lo, hi in (sub_boxes or []):
@@ -858,8 +868,42 @@ def seg_rgba(mask: np.ndarray) -> RGBA:
     return img
 
 
+def _glass_alpha(labels: np.ndarray, present: np.ndarray) -> np.ndarray:
+    """Per-voxel opacity for a many-label 3-D segmentation.
+
+    Structures that *enclose* others (scalp, skull, white matter around the
+    ventricles …) become glass so what they wrap stays visible; everything else
+    (liver, kidneys, vertebrae …) stays opaque.  A label encloses another when the
+    other lies (≥ 80 %) inside its hole-filled hull; thin shells (the hull is ≥ 3×
+    the label) are the most transparent.  Without SciPy, the largest labels
+    become glass instead.
+    """
+    sizes = np.bincount(labels.reshape(-1).astype(np.int64))
+    la = np.zeros(len(sizes), np.float32)
+    try:
+        from scipy import ndimage
+
+        objs = ndimage.find_objects(labels.astype(np.int64))
+        for l in present:
+            sl = objs[int(l) - 1] if int(l) - 1 < len(objs) else None
+            if sl is None:
+                continue
+            m = labels[sl] == l
+            hull = ndimage.binary_fill_holes(ndimage.binary_closing(m, iterations=2) | m)
+            ratio = float(hull.sum()) / max(float(m.sum()), 1.0)
+            inside = np.bincount(labels[sl][hull & ~m].reshape(-1).astype(np.int64), minlength=len(sizes))
+            inside[0] = 0
+            encloses = bool(np.any(inside[present] >= 0.8 * sizes[present]))
+            la[l] = float(np.interp(ratio, [1.15, 3.0], [0.1, 0.06])) if encloses else 0.9
+    except ImportError:
+        ref = float(np.percentile(sizes[present], 20))
+        la[present] = 0.9 * np.clip(ref / sizes[present], 0.04, 1.0)
+    return la[labels.astype(np.int64)]
+
+
 def render_segmentation(mask: np.ndarray, base: Optional[np.ndarray], cfg: FlowConfig, axes: str = "xyz",
-                        fov: Optional[Sequence[float]] = None, boxes: Optional[Sequence] = None) -> Visual:
+                        fov: Optional[Sequence[float]] = None, boxes: Optional[Sequence] = None,
+                        size: int = 200) -> Visual:
     """mask: [H,W] or [X,Y,Z] (labels or probabilities); base: input image [C,H,W] / [C,X,Y,Z].
 
     ``fov``: physical field of view of ``mask`` (canonical x, y, z); defaults to the
@@ -868,12 +912,12 @@ def render_segmentation(mask: np.ndarray, base: Optional[np.ndarray], cfg: FlowC
     """
     if mask.ndim == 3:
         with physical_fov(fov if fov is not None else getattr(cfg, "physical_fov", None)):
-            return _render_segmentation(mask, base, cfg, axes, boxes)
+            return _render_segmentation(mask, base, cfg, axes, boxes, size)
     return _render_segmentation(mask, base, cfg, axes, boxes)
 
 
 def _render_segmentation(mask: np.ndarray, base: Optional[np.ndarray], cfg: FlowConfig, axes: str = "xyz",
-                         boxes: Optional[Sequence] = None) -> Visual:
+                         boxes: Optional[Sequence] = None, size: int = 200) -> Visual:
     if mask.ndim == 2:
         H, W = mask.shape
         if base is not None and cfg.overlay_segmentation:
@@ -903,12 +947,7 @@ def _render_segmentation(mask: np.ndarray, base: Optional[np.ndarray], cfg: Flow
     fg_alpha = fg * 0.9
     present = np.unique(labels[labels > 0]) if fg.any() else np.array([], int)
     if len(present) >= 3:
-        # many structures: large ones (scalp, white matter …) become glass so small, deep ones stay visible
-        sizes = np.bincount(labels.reshape(-1).astype(np.int64))
-        ref = float(np.percentile(sizes[present], 20))
-        la = np.zeros(len(sizes), np.float32)
-        la[present] = 0.9 * np.clip(ref / sizes[present], 0.04, 1.0)
-        fg_alpha = la[labels.astype(np.int64)]
+        fg_alpha = _glass_alpha(labels, present)
     if B is not None:
         Bn = robust_norm(B, (1, 99.5))
         tissue = (Bn > _foreground_threshold(Bn)).astype(np.float32)
@@ -917,7 +956,7 @@ def _render_segmentation(mask: np.ndarray, base: Optional[np.ndarray], cfg: Flow
     else:
         alpha = fg_alpha
         rgb = lab_rgb
-    cube = raycast(alpha.astype(np.float32), rgb.astype(np.float32), fg.shape, 200, shade=True, ref_steps=64.0,
+    cube = raycast(alpha.astype(np.float32), rgb.astype(np.float32), fg.shape, size, shade=True, ref_steps=64.0,
                    sub_boxes=[(np.asarray(lo) / np.array(fg.shape), np.asarray(hi) / np.array(fg.shape))
                               for lo, hi in (boxes or [])])
     loc = center_of_mass(fg) if fg.sum() > 0 else tuple(s // 2 for s in fg.shape)

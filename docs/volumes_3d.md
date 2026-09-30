@@ -16,6 +16,7 @@ every 64³ window (the traced window is outlined).*
 | `volume_axes` | tensor layout | used by |
 |---|---|---|
 | `"xyz"` (default) | `[B, C, X, Y, Z]`, x = left→right, y = posterior→anterior, z = inferior→superior | nibabel, MONAI `LoadImage` |
+| `"zyx"` | `[B, C, Z, Y, X]`, the same axes reversed | nnU-Net, SimpleITK (set automatically for `nnunet:` models) |
 | `"dhw"` | `[B, C, D, H, W]`, a stack of axial slices | torch / DICOM slice stacks |
 
 The axis order only affects how volumes are drawn (which way is "up"), never the model.
@@ -74,6 +75,19 @@ climbs back to 64³.*
 MONAI bundle's own sources **with random weights**: the patch embedding, three NesT levels, bottleneck
 and decoder are found and drawn as a U. The prediction is meaningless without the trained weights;
 run `neural-flow fetch unest` and `bash tools/test_unest.sh` to render it with them.*
+
+## nnU-Net
+
+nnU-Net's U-Nets (`PlainConvUNet`, `ResidualEncoderUNet`) are drawn one stage per resolution level,
+with deep supervision switched off, and trained models load from their results folders with nnU-Net's
+own preprocessing and sliding-window settings:
+
+```bash
+neural-flow render totalseg -i sample:ct --sliding-window --style cinematic          # TotalSegmentator, CT
+neural-flow render nnunet:/path/to/results_folder -i case.nii.gz --sliding-window    # your model
+```
+
+See [nnU-Net and TotalSegmentator](nnunet.md).
 
 ## Whole-volume output (sliding windows)
 
@@ -161,4 +175,5 @@ Movies re-run the network three times per frame (stage choice, channel ranking, 
 
 UNETR (Hatamizadeh et al., WACV 2022), Swin UNETR (Hatamizadeh et al., BrainLes 2021; Tang et al., CVPR
 2022), UNesT (Yu et al., Medical Image Analysis 2023), NesT (Zhang et al., AAAI 2022), Gaussian
-sliding-window fusion (Isensee et al., nnU-Net, Nature Methods 2021). Full entries: [References](references.md).
+sliding-window fusion and nnU-Net (Isensee et al., Nature Methods 2021), TotalSegmentator (Wasserthal et al.,
+Radiology: AI 2023). Full entries: [References](references.md).
