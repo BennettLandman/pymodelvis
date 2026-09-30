@@ -36,3 +36,6 @@ website/_media_cache/
 
 # output of tools/test_unest.sh
 unest_check/
+
+# Office lock files (e.g. while the deck is open in PowerPoint)
+~$*
