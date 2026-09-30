@@ -31,7 +31,7 @@ ROOT = os.path.dirname(HERE)
 SRC = os.path.join(HERE, "_src")
 OUT = os.path.join(HERE, "_site")
 OUTPUTS = os.path.join(ROOT, "examples", "outputs")
-REPO = "https://github.com/BennettLandman/pymodelvis"
+REPO = "https://github.com/MASILab/pymodelvis"
 
 # figures shown on the site: (file, max width for the page, thumbnail width)
 FIGURES = [

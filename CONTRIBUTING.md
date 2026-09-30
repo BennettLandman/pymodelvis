@@ -1,11 +1,11 @@
 # Contributing
 
-Issues and pull requests are welcome at https://github.com/BennettLandman/pymodelvis.
+Issues and pull requests are welcome at https://github.com/MASILab/pymodelvis.
 
 ## Development setup
 
 ```bash
-git clone https://github.com/BennettLandman/pymodelvis.git
+git clone https://github.com/MASILab/pymodelvis.git
 cd pymodelvis
 python -m venv .venv && source .venv/bin/activate
 pip install -e ".[all]"
@@ -27,7 +27,7 @@ pytest -q
 
 ## Documentation and website
 
-The docs are Markdown in `docs/`; the website (https://bennettlandman.github.io/pymodelvis/) is
+The docs are Markdown in `docs/`; the website (https://masilab.github.io/pymodelvis/) is
 built from them plus `examples/outputs/` and is published automatically on every push to `main`.
 Preview it with `pip install -r website/requirements.txt && python website/build.py --serve`.
 See [website/README.md](website/README.md).

@@ -1,6 +1,6 @@
 # Project website
 
-Source for **https://bennettlandman.github.io/pymodelvis/**, built with
+Source for **https://masilab.github.io/pymodelvis/**, built with
 [MkDocs](https://www.mkdocs.org/) and [Material for MkDocs](https://squidfunk.github.io/mkdocs-material/).
 
 The site has no content of its own apart from the landing page. Everything else is taken from the

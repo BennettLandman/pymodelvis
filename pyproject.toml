@@ -33,10 +33,10 @@ dependencies = [
 neural-flow = "neural_flow.cli:main"
 
 [project.urls]
-Homepage = "https://bennettlandman.github.io/pymodelvis/"
-Documentation = "https://bennettlandman.github.io/pymodelvis/installation/"
-Source = "https://github.com/BennettLandman/pymodelvis"
-Issues = "https://github.com/BennettLandman/pymodelvis/issues"
+Homepage = "https://masilab.github.io/pymodelvis/"
+Documentation = "https://masilab.github.io/pymodelvis/installation/"
+Source = "https://github.com/MASILab/pymodelvis"
+Issues = "https://github.com/MASILab/pymodelvis/issues"
 
 [project.optional-dependencies]
 examples = ["torchvision>=0.16", "timm>=0.9", "scikit-image>=0.20", "torchxrayvision>=1.2"]

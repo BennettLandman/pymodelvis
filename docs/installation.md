@@ -10,7 +10,7 @@
 ## Install from source
 
 ```bash
-git clone https://github.com/BennettLandman/pymodelvis.git
+git clone https://github.com/MASILab/pymodelvis.git
 cd pymodelvis
 python -m venv .venv
 source .venv/bin/activate            # Windows: .venv\Scripts\activate

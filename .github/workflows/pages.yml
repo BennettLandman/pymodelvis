@@ -1,7 +1,7 @@
 name: website
 
 # Builds the project website from docs/, examples/outputs/ and website/, and publishes it to
-# GitHub Pages at https://bennettlandman.github.io/pymodelvis/
+# GitHub Pages at https://masilab.github.io/pymodelvis/
 # One-time setup: repository Settings → Pages → Build and deployment → Source: "GitHub Actions".
 
 on:

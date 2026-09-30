@@ -3,14 +3,14 @@ site_name: pymodelvis
 site_description: >-
   See what a PyTorch network sees. neural_flow draws what a specific input becomes inside a
   network, stage by stage, as figures, an interactive explorer and movies.
-site_url: https://bennettlandman.github.io/pymodelvis/
+site_url: https://masilab.github.io/pymodelvis/
 site_author: Bennett Landman
-repo_url: https://github.com/BennettLandman/pymodelvis
-repo_name: BennettLandman/pymodelvis
+repo_url: https://github.com/MASILab/pymodelvis
+repo_name: MASILab/pymodelvis
 edit_uri: ""
 copyright: >-
   Copyright © 2026 Bennett Landman and the MASI Lab, Vanderbilt University ·
-  <a href="https://github.com/BennettLandman/pymodelvis/blob/main/LICENSE">BSD-3-Clause</a>
+  <a href="https://github.com/MASILab/pymodelvis/blob/main/LICENSE">BSD-3-Clause</a>
 
 docs_dir: _src
 site_dir: _site
@@ -61,7 +61,7 @@ extra_javascript:
 extra:
   social:
     - icon: fontawesome/brands/github
-      link: https://github.com/BennettLandman/pymodelvis
+      link: https://github.com/MASILab/pymodelvis
     - icon: fontawesome/solid/flask
       link: https://my.vanderbilt.edu/masi/
   generator: false

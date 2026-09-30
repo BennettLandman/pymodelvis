@@ -61,5 +61,5 @@ Some things I did to keep AI-written code trustworthy, and that I recommend if y
 ## Contact
 
 Issues and pull requests are welcome at
-[github.com/BennettLandman/pymodelvis](https://github.com/BennettLandman/pymodelvis). The MASI Lab is at
+[github.com/MASILab/pymodelvis](https://github.com/MASILab/pymodelvis). The MASI Lab is at
 [my.vanderbilt.edu/masi](https://my.vanderbilt.edu/masi/).

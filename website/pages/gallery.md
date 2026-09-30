@@ -7,7 +7,7 @@ hide:
 
 # Gallery
 
-Every figure below was made by the scripts in [`examples/`](https://github.com/BennettLandman/pymodelvis/tree/main/examples)
+Every figure below was made by the scripts in [`examples/`](https://github.com/MASILab/pymodelvis/tree/main/examples)
 and is committed to the repository. Click a figure to enlarge it. How each was made and what to
 look for: [Examples explained](examples.md).
 
