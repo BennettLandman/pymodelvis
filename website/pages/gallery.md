@@ -92,6 +92,30 @@ Trained on synthetic microscopy images. Skip connections are drawn as bridges.
 python examples/medical_3d.py --mode volume|ortho|montage|projection
 ```
 
+## 3-D transformer U-Nets on a whole head
+
+MONAI UNETR and Swin UNETR, trained here on 64³ windows of a synthetic head with five structures. The
+transformer levels are stages; the output card is the whole head fused from sliding windows.
+
+<div class="nf-gallery-page" markdown>
+
+![UNETR, cinematic](media/transformer3d_unetr.webp){ .nf-wide }
+
+![Swin UNETR, cinematic](media/transformer3d_swinunetr.webp){ .nf-wide }
+
+![UNETR, optional flat 2-D view](media/transformer3d_unetr_flat.webp){ .nf-wide }
+
+![3-D U-Net on thick slices, drawn to scale](media/medical_3d_cinematic_thick.webp){ .nf-wide }
+
+</div>
+
+```bash
+python examples/transformer_3d.py [--model swinunetr] [--flat] [--movie]
+neural-flow render unest -i T1_mni.nii.gz --sliding-window --style cinematic      # MASI UNesT, real weights
+```
+
+See [3-D models](volumes_3d.md).
+
 ## Multi-input, multi-head
 
 An MRI volume and a clinical vector → lesion segmentation, lesion probability and brain age.
@@ -129,6 +153,11 @@ Stages, channels, colours and scales are fixed across frames. See [Movies](movie
 <figure class="nf-movie" markdown>
 <video muted loop playsinline controls preload="none" poster="../media/movie_cxr_occlusion_poster.webp"><source src="../media/movie_cxr_occlusion.mp4" type="video/mp4"></video>
 <figcaption>Occlusion sweep, chest X-ray</figcaption>
+</figure>
+
+<figure class="nf-movie" markdown>
+<video muted loop playsinline controls preload="none" poster="../media/movie_sliding_window_unetr_poster.webp"><source src="../media/movie_sliding_window_unetr.mp4" type="video/mp4"></video>
+<figcaption>3-D inference, UNETR, window by window</figcaption>
 </figure>
 
 </div>

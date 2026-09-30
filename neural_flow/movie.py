@@ -156,11 +156,14 @@ def _make_footer(series, thumbs, T: int, t: int, frame_labels: Optional[Sequence
 def animate_inputs(model, inputs, output: str = "input_sweep.mp4", *, fps: int = 8, frame_labels=None,
                    title: Optional[str] = None, subtitle: Optional[str] = None, style: str = "cinematic",
                    figsize=(16, 9), dpi: int = 120, hold_last: int = 0, footer_height: float = 2.2,
-                   progress: bool = True, **kw) -> str:
+                   progress: bool = True, frame_hook: Optional[Callable[[int, FlowResult], None]] = None,
+                   thumb_fn: Optional[Callable[[int, FlowResult], Optional[np.ndarray]]] = None, **kw) -> str:
     """Render a movie of the activation flow over a sequence of inputs.
 
     ``inputs``: a tensor ``[T, ...]`` (one frame per leading index), or any
     iterable of per-frame inputs (tensors or dicts for multi-input models).
+    ``frame_hook(t, result)`` may edit each frame's result before rendering (e.g.
+    replace an output view); ``thumb_fn(t, result)`` supplies the film-strip image.
     """
     frames = _split_frames(inputs)
     T = len(frames)
@@ -169,7 +172,7 @@ def animate_inputs(model, inputs, output: str = "input_sweep.mp4", *, fps: int =
     kw = dict(kw)
     kw.update(style=style, figsize=figsize, dpi=dpi)
     # ---- pass 0: choose stages on the first frame
-    r0 = trace_model(model, frames[0], explain=False, **kw)
+    r0 = trace_model(model, frames[0], **dict(kw, explain=False))
     sel = _stage_selectors(r0)
     strategy = r0.config.channel_strategy
     kw_fixed = dict(kw, layers=sel)
@@ -182,7 +185,7 @@ def animate_inputs(model, inputs, output: str = "input_sweep.mp4", *, fps: int =
     basis: Dict[str, Any] = {}
     mid = T // 2
     for i, f in enumerate(frames):
-        r = trace_model(model, f, explain=False, **kw_fixed)
+        r = trace_model(model, f, **dict(kw_fixed, explain=False))
         for st in r.graph.stages.values():
             sm = st.summary
             if sm is None or st.kind == "input" or not sm.channel_scores:
@@ -206,6 +209,8 @@ def animate_inputs(model, inputs, output: str = "input_sweep.mp4", *, fps: int =
     results: List[FlowResult] = []
     for i, f in enumerate(frames):
         r = trace_model(model, f, force_channels=force, force_pca=basis, **kw_fixed)
+        if frame_hook is not None:
+            frame_hook(i, r)
         results.append(r)
         if progress:
             print(f"\r  capturing frames  {i + 1}/{T}   ", end="", flush=True)
@@ -240,7 +245,7 @@ def animate_inputs(model, inputs, output: str = "input_sweep.mp4", *, fps: int =
             vals = np.concatenate([s.channel_scores["mean"] for s in sms])
             vec_ranges[key] = tuple(np.percentile(vals, (1, 99.5)))
     series = _series(results)
-    thumbs = [_thumb(r) for r in results]
+    thumbs = [thumb_fn(t, r) if thumb_fn is not None else _thumb(r) for t, r in enumerate(results)]
     # ---- render
     ext = os.path.splitext(output)[1].lower()
     writer = _Writer(output, fps)

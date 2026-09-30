@@ -28,6 +28,14 @@ class FlowConfig:
     projection: str = "max"                          # max | mean | meanabs
     volume_style: str = "voxels"                     # voxels (solid strong voxels in a translucent block) | cutaway | glow
     volume_axes: str = "xyz"                         # xyz (nibabel/MONAI [X,Y,Z]) | dhw (torch slice stack [D,H,W])
+    voxel_spacing: Optional[Tuple[float, ...]] = None  # input voxel size per spatial dim (tensor order), e.g. (1, 1, 5) mm
+    physical_fov: Optional[Tuple[float, float, float]] = None  # set automatically from voxel_spacing
+    flat_3d: Union[bool, str] = False                # draw 3-D stages as flattened 2-D maps: False | True/"max" | "mean"
+    sliding_window: bool = False                     # trace one ROI patch, show the whole-volume fused output
+    roi_size: Optional[Tuple[int, ...]] = None       # sliding-window patch size, e.g. (96, 96, 96)
+    roi_center: Optional[Tuple[int, ...]] = None     # voxel the traced patch is centred on (default: foreground centre)
+    sw_overlap: float = 0.25                         # sliding-window overlap fraction
+    sw_max_mb: float = 1500.0                        # memory budget for fused whole-volume logits
     token_mode: str = "auto"                         # auto | grid | heatmap | pca | l2 | mean
     cls_tokens: Optional[int] = None                 # number of leading special tokens (None = infer)
     patch_grid: Optional[Tuple[int, int]] = None     # (rows, cols) of patch tokens (None = infer)

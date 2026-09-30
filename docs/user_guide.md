@@ -163,7 +163,14 @@ left→right, `Y` posterior→anterior, `Z` inferior→superior). Use `volume_ax
 ```python
 visualize_model(unet3d, vol, style="cinematic", output_types={"output": "segmentation"})
 visualize_model(unet3d, vol, volume_mode="projection", projection="max")
+visualize_model(unet3d, vol, voxel_spacing=(1, 1, 3))                        # drawn to physical scale
+visualize_model(unetr, whole_head, sliding_window=True, roi_size=(96, 96, 96))  # whole-volume output
+visualize_model(unet3d, vol, flat_3d=True)                                    # optional squashed 2-D view
 ```
+
+Transformer U-Nets (UNETR, Swin UNETR, UNesT) are recognised automatically: their transformer levels
+become stages and the decoder is drawn as a U. Everything 3-D is covered in [3-D models](volumes_3d.md),
+including the `sliding_window_movie` of 3-D inference.
 
 ## 9. Transformers
 

@@ -319,3 +319,6 @@
 .nf-shot--wide { grid-column: 1 / -1; }
 .nf-shot--wide a { aspect-ratio: auto; padding: 0; }
 .nf-shot--wide img { width: 100%; max-height: none; }
+
+/* links inside gallery captions are plain links, not image frames */
+.nf-shot figcaption a { display: inline; border: 0; background: none; aspect-ratio: auto; padding: 0; overflow: visible; }

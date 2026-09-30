@@ -76,6 +76,7 @@ nav:
       - Gallery: gallery.md
       - Examples explained: examples.md
       - Movies: movies.md
+      - 3-D models: volumes_3d.md
       - Slide deck: deck/index.md
   - Real models: real_models.md
   - Reference:
@@ -90,6 +91,7 @@ nav:
       - Topology: topology.md
       - Architecture: architecture.md
       - Contributing: contributing.md
+  - About: about.md
 
 markdown_extensions:
   - abbr

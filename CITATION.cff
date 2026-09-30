@@ -14,7 +14,7 @@ authors:
     email: bennett.landman@vanderbilt.edu
 repository-code: "https://github.com/BennettLandman/pymodelvis"
 license: BSD-3-Clause
-version: 0.1.0
+version: 0.2.0
 date-released: 2026-09-29
 keywords:
   - PyTorch

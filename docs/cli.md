@@ -125,7 +125,30 @@ raw values are shown.
 | `--explain` / `--no-explain` | gradient explanations (on by default for cinematic) |
 | `--set KEY=VALUE` | any other option from the [API reference](api.md), e.g. `--set max_capture_mb=200` |
 
-## 8. Movies
+## 8. 3-D volumes
+
+```bash
+neural-flow render my_unet.py:UNet3D --weights best.pt -i scan.nii.gz --crop 96        # one 96³ ROI
+neural-flow render unest -i T1_mni.nii.gz --sliding-window --style cinematic           # whole-brain output
+neural-flow render my_net.py:Net -i ct.nii.gz --sliding-window --roi 128 128 64 --sw-overlap 0.5
+neural-flow render my_unet.py:UNet3D -i scan.nii.gz --crop 96 --flat-3d                # squashed 2-D view
+```
+
+| option | what it does |
+|---|---|
+| (automatic) | voxel spacing is read from the NIfTI header, so volumes are drawn to scale |
+| `--spacing SX SY SZ` / `--no-spacing` | override the spacing / draw voxels as cubes |
+| `--sliding-window` | trace one window; the output card shows the whole volume fused from all windows |
+| `--roi N` or `--roi X Y Z` | window size (default: `--crop`, the bundle's ROI, or 96) |
+| `--sw-overlap F` | window overlap (default 0.25) |
+| `--roi-center X Y Z` | voxel the traced window is centred on (default: centre of the foreground) |
+| `--flat-3d [max\|mean]` | optional: draw 3-D stages as 2-D projections |
+| `--volume-mode`, `--volume-axes` | see [Appearance](#7-appearance) |
+
+Transformer U-Nets (UNETR, Swin UNETR, UNesT) are recognised automatically: their transformer levels
+become stages and the decoder is drawn as a U. See [3-D models](volumes_3d.md).
+
+## 9. Movies
 
 ```bash
 neural-flow movie resnet50 --pan panorama.jpg -o pan.mp4                  # camera pan (wide image)
@@ -134,6 +157,7 @@ neural-flow movie cxr --occlusion sample:cxr --patch 56 --stride 28 -o occlusion
 neural-flow movie resnet50 --crossfade cat.jpg dog.jpg -o morph.mp4
 neural-flow movie my_net.py:Net --weights w.pt --frames "followup/*.nii.gz" --crop 96 -o timecourse.mp4
 neural-flow movie unest --volume-sweep T1_mni.nii.gz --steps 24 -o sweep.mp4
+neural-flow movie unest --inference T1_mni.nii.gz --max-windows 16 -o inference.mp4   # 3-D inference, window by window
 ```
 
 Common options: `--steps N` (generated frames for pan / zoom / crossfade / volume sweep; the
@@ -142,11 +166,11 @@ occlusion grid is set by `--patch` and `--stride` instead), `--fps N`, `--hold N
 (`pip install -e ".[animation]"`); otherwise a GIF is written. Stages, channels, colours and scales
 are held fixed across frames (see [movies.md](movies.md)).
 
-## 9. Real models and the cache
+## 10. Real models and the cache
 
 ```bash
 neural-flow fetch resnet50 vit cxr         # pre-download into ~/.cache/neural_flow
-neural-flow fetch unest                    # MASI UNesT MONAI bundle + MNI152 T1 (needs monai, huggingface_hub, nilearn)
+neural-flow fetch unest                    # MASI UNesT MONAI bundle + MNI152 T1 (needs monai, nilearn)
 neural-flow render unest -i ~/.cache/neural_flow/mni152_t1_1mm.nii.gz --style cinematic -o unest.png
 neural-flow models                         # aliases and the folders searched for weights
 ```
@@ -154,7 +178,7 @@ neural-flow models                         # aliases and the folders searched fo
 Weights are looked up in `./real_models/` (written by `tools/checkout_real_models.py`), then in
 the package checkout's `real_models/`, then in the cache.
 
-## 10. Troubleshooting
+## 11. Troubleshooting
 
 * `error: …` messages are short on purpose. Set `NEURAL_FLOW_DEBUG=1` for the full traceback.
 * "could not download … weights": connect to the internet, run `neural-flow fetch …`, pass

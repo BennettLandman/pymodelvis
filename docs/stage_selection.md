@@ -54,6 +54,23 @@ Results on reference models (defaults):
 | Swin-T | patch embed, 4 stages (PatchMerging absorbed), avgpool, head |
 | 2-D / 3-D U-Net | enc1–3, bottleneck, dec3–1, seg head (pool / up-conv absorbed) |
 
+## 2b. Architecture proposals (transformer U-Nets)
+
+Before the generic cut, an architecture adapter may propose the stages itself. The one that does is
+the *transformer U-Net* adapter (UNETR, Swin UNETR, UNesT, TransUNet-like models). It recognises, from
+the runtime dataflow, a top-level unit containing transformer blocks whose hidden states are read by
+two or more other top-level units, and then shows:
+
+1. the backbone's **tapped** levels / blocks (those whose outputs leave the backbone), sampled evenly
+   if there are more than fit, plus its patch embedding when there is room;
+2. the other top-level units, **except** projection branches that only take a hidden state (or the
+   input) to a higher resolution for one decoder level; these become skip bridges;
+3. roles for the story / cinematic headings: PATCH EMBEDDING, TRANSFORMER ENCODER, BOTTLENECK,
+   DECODER, SEGMENTATION HEAD.
+
+It also raises the stage budget to 14 and turns the U layout on. A plain ViT classifier (one
+consumer of the backbone) is not affected.
+
 ## 3. Inserted representation stages
 
 If a head consumes a *vector* but its predecessor stage is still spatial or token-shaped (ViT:

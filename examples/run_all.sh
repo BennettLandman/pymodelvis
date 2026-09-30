@@ -14,13 +14,16 @@ python chest_xray.py                               # TorchXRayVision DenseNet-12
 python unet.py && python unet.py --style cinematic && python unet.py --style story
 python medical_3d.py && python medical_3d.py --style cinematic && python medical_3d.py --mode projection
 python multihead.py && python multihead.py --style cinematic
+python medical_3d.py --style cinematic --thick
+python transformer_3d.py && python transformer_3d.py --flat && python transformer_3d.py --model swinunetr
 # --- extras & movies
 python extras.py
 python movies.py pan
 python movies.py aging
 python chest_xray.py --movie
 python movies.py vit
-# --- MASI UNesT (after: python ../tools/checkout_real_models.py --only unest)
-if [ -d ../real_models/monai_bundles/wholeBrainSeg_Large_UNEST_segmentation ]; then
+python transformer_3d.py --movie
+# --- MASI UNesT (after: neural-flow fetch unest)
+if python -c "from neural_flow import zoo; zoo.find_bundle(zoo.UNEST_BUNDLE)" 2>/dev/null; then
   python monai_bundle.py && python monai_bundle.py --movie
 fi

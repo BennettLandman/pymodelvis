@@ -35,29 +35,47 @@ It writes into `real_models/`:
 ## MONAI bundles (`examples/monai_bundle.py`)
 
 ```bash
+neural-flow fetch unest                                 # bundle + MNI152 T1 template into ~/.cache/neural_flow
 python examples/monai_bundle.py                         # default: UNesT whole-brain, cinematic figure
-python examples/monai_bundle.py --movie --frames 24     # the ROI window sweeps inferior → superior
-python examples/monai_bundle.py --image my_t1.nii.gz
+python examples/monai_bundle.py --movie                 # sliding-window inference over the whole head
+python examples/monai_bundle.py --image my_t1.nii.gz    # a T1 registered to MNI space
 python examples/monai_bundle.py --bundle-dir path/to/any_bundle --roi 96
-python examples/monai_bundle.py --no-explain            # skip gradients (faster, less memory)
+python examples/monai_bundle.py --no-explain            # skip gradients (faster, much less memory)
 ```
 
-The script:
+or, without Python:
+
+```bash
+neural-flow render unest -i ~/.cache/neural_flow/mni152_t1_1mm.nii.gz --sliding-window --style cinematic
+neural-flow movie unest --inference ~/.cache/neural_flow/mni152_t1_1mm.nii.gz --max-windows 16
+```
+
+`neural-flow fetch unest` tries Hugging Face (`MONAI/wholeBrainSeg_Large_UNEST_segmentation`) first,
+then the bundle's sources from the MONAI model-zoo repository on GitHub plus the weight file listed in
+its `large_files.yml` (an NVIDIA download, checked against its MD5), then `monai.bundle.download`.
+
+The loader:
 
 1. reads the bundle's `configs/inference.json` (or `.yaml`) and instantiates `network_def`;
 2. loads `models/model.pt` (plain state dicts and `{"model": …}` / `{"state_dict": …}` checkpoints);
 3. runs the bundle's own `preprocessing` transform when it can, or falls back to z-scoring;
-4. crops an ROI of the bundle's `roi_size` around the head's centre of mass, because the network
-   sees one sliding-window patch at a time;
-5. renders with `style="cinematic"`, `output_types={"output": "segmentation"}`.
+4. takes the window size from the bundle's `inferer.roi_size` and the 133 structure names from
+   `metadata.json`;
+5. traces one window at the head's centre and fuses the whole-brain output from every window
+   (`sliding_window=True`), drawn to scale from the NIfTI voxel spacing.
 
-UNesT expects T1-weighted MRI registered to MNI space. The MNI152 template is a convenient
-public input; your own registered T1 gives a more interesting figure. Large multi-class
-outputs (133 labels × ROI³) are kept as argmax labels to save memory.
+UNesT expects T1-weighted MRI affinely registered to MNI space. The MNI152 template is a convenient
+public input; your own registered T1 gives a more interesting figure.
 
-> Status: `monai_bundle.py` was tested with a stand-in bundle built from the same config format.
-> The real UNesT bundle could not be downloaded in the development sandbox, so run it once on your
-> machine and adjust `--roi` if the figure is too slow.
+Memory: the 133-channel output of a whole head would need several GB, so fused logits are accumulated
+on a coarser grid (`sw_max_mb`). With explanations on, a 96³ UNesT window needs about 6–8 GB of RAM on
+a CPU; use `--no-explain` on smaller machines.
+
+> Status: the UNesT *architecture* (from the bundle's own sources) is tested here: its patch
+> embedding, three NesT levels, bottleneck and decoder are recognised and drawn as a U, with
+> sliding-window output over the MNI152 template. The trained *weights* could not be downloaded in the
+> development sandbox (the NVIDIA, Hugging Face and NGC hosts are blocked there), so the first run with
+> real weights happens on your machine.
 
 ## Your own model
 

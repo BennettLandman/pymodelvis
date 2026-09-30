@@ -37,6 +37,7 @@ class FlowResult:
     rollout: Optional[np.ndarray] = None
     model_name: str = ""
     explanation: Any = None
+    context: Dict[str, Any] = field(default_factory=dict)   # e.g. whole-volume base for sliding-window outputs
 
     @property
     def stages(self):
@@ -52,6 +53,16 @@ class FlowResult:
         return "\n".join(rows)
 
 
+def _tensor_leaves(obj) -> List[torch.Tensor]:
+    if isinstance(obj, torch.Tensor):
+        return [obj]
+    if isinstance(obj, dict):
+        return [t for v in obj.values() for t in _tensor_leaves(v)]
+    if isinstance(obj, (list, tuple)):
+        return [t for v in obj for t in _tensor_leaves(v)]
+    return []
+
+
 def _user_set(kw: Dict[str, Any]) -> set:
     return {k for k, v in kw.items() if v is not None}
 
@@ -60,10 +71,23 @@ def trace_model(model: nn.Module, inputs: Any, config: Optional[FlowConfig] = No
     """Instrument ``model`` on ``inputs`` and compute stage summaries (no drawing)."""
     user = _user_set(kw)
     cfg = make_config(config, **kw)
+    if cfg.sliding_window:
+        from .volume3d import sliding_window_trace
+
+        return sliding_window_trace(model, inputs, config, kw)
     if cfg.style == "cinematic" and "theme" not in user and not (config is not None and config.theme != "light"):
         cfg = cfg.updated(theme="black")
     notes: List[str] = []
     prep = prepare_inputs(model, inputs, cfg)
+    if cfg.voxel_spacing is not None and cfg.physical_fov is None:
+        from .raster import canonical_fov
+
+        for t in [t for _, t in prep.named]:
+            if t.dim() == 5:
+                fov = canonical_fov(tuple(t.shape[2:]), cfg.voxel_spacing, cfg.volume_axes)
+                if fov is not None:
+                    cfg = cfg.updated(physical_fov=fov)
+                break
     trace = trace_metadata(model, prep, cfg)
     notes += trace.notes
 
@@ -71,10 +95,17 @@ def trace_model(model: nn.Module, inputs: Any, config: Optional[FlowConfig] = No
     for a in ads:
         cfg = _adapters.apply_defaults(cfg, a.defaults(model, trace), user | (set(config.__dict__) if config else set()))
 
-    calls = select_stages(trace, cfg)
+    calls = select_stages(trace, cfg, ads)
     if not calls:
         warnings.warn("neural_flow: no module stages selected; showing inputs and outputs only")
     graph = build_stage_graph(trace, calls, cfg, model, label_fn=lambda c: _pretty(short_label(c, cfg)))
+    graph.meta.update(getattr(trace, "meta", {}) or {})
+    for a in ads:
+        if hasattr(a, "annotate"):
+            try:
+                a.annotate(trace, graph)
+            except Exception:
+                pass
     notes += graph.notes
 
     requests = []
@@ -145,6 +176,10 @@ def trace_model(model: nn.Module, inputs: Any, config: Optional[FlowConfig] = No
 
         res.explanation = compute_explanations(model, prep, res)
         res.notes += res.explanation.notes
+    if cfg.flat_3d:
+        from .volume3d import flatten_result
+
+        flatten_result(res, cfg.flat_3d if isinstance(cfg.flat_3d, str) else "max")
     return res
 
 
@@ -206,9 +241,12 @@ def build_visuals(res: FlowResult, strategy: Optional[str] = None):
                 vis.extras["attn"] = r
         visuals[st.key] = vis
     out_visuals: Dict[str, Visual] = {}
+    ctx = res.context
     for key, ov in res.views.items():
         if ov.kind == "segmentation" and ov.mask is not None:
-            out_visuals[key] = render_segmentation(ov.mask, input_image, cfg, cfg.volume_axes)
+            base = ctx.get("seg_base", input_image)
+            out_visuals[key] = render_segmentation(ov.mask, base, cfg, cfg.volume_axes, fov=ctx.get("seg_fov"),
+                                                   boxes=ctx.get("seg_boxes"))
         elif ov.kind == "embedding" and ov.vector is not None:
             out_visuals[key] = render_vector(ov.vector, cfg, max_len=256)
     return visuals, out_visuals
@@ -244,11 +282,20 @@ def _subtitle(res: FlowResult) -> str:
         ins = ", ".join(f"{s.label} {'×'.join(map(str, s.shape[1:] if s.shape else ()))}"
                         for s in res.graph.ordered() if s.kind == "input")
         n = len([s for s in res.graph.stages.values() if s.kind != "input"])
-        return f"{ins}   ·   {n} stages   ·   pages ranked by {res.config.channel_strategy}"
+        return f"{ins}{_sw_note(res)}   ·   {n} stages   ·   pages ranked by {res.config.channel_strategy}"
     ins = ", ".join(f"{s.label} {'×'.join(map(str, s.shape[1:] if s.shape else ()))}"
                     for s in res.graph.ordered() if s.kind == "input")
     n = len([s for s in res.graph.stages.values() if s.kind != "input"])
-    return f"input: {ins}   ·   {n} stages of {len(res.trace.calls)} module calls   ·   channels by {res.config.channel_strategy}   ·   topology: {res.graph.topology_source}"
+    return f"input: {ins}{_sw_note(res)}   ·   {n} stages of {len(res.trace.calls)} module calls   ·   channels by {res.config.channel_strategy}   ·   topology: {res.graph.topology_source}"
+
+
+def _sw_note(res: FlowResult) -> str:
+    sw = res.context.get("sliding_window")
+    if not sw:
+        return ""
+    vol = "×".join(map(str, sw["volume"]))
+    at = ",".join(map(str, sw["start"]))
+    return f" (window at {at} of a {vol} volume; output fused from {sw['windows']} windows)"
 
 
 def draw(res: FlowResult, strategy: Optional[str] = None, frame=None):

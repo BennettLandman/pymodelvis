@@ -43,6 +43,7 @@ visualize_model(model, x, output="flow.png", style="cinematic")
 - [How it works](#how-it-works-in-one-paragraph)
 - [Limitations](#limitations)
 - [Citing](#citing)
+- [About](docs/about.md)
 - [License](#license)
 
 ## Why
@@ -80,6 +81,12 @@ INPUT → EARLY FEATURES → INTERMEDIATE REPRESENTATIONS → HIGH-LEVEL FEATURE
 | **Multi-input, multi-head**: MRI + clinical vector → segmentation, lesion, brain age | **Technical style** for papers (light, exact shapes, module names) |
 | ![multi-head](examples/outputs/multihead_cinematic.png) | ![technical](examples/outputs/resnet50_technical.png) |
 
+**3-D transformer networks, whole volumes.** UNETR, Swin UNETR and UNesT show their transformer
+levels as stages and their decoder as a U; the output card shows the whole scan fused from sliding
+windows, drawn to scale from the voxel spacing ([3-D models](docs/volumes_3d.md)):
+
+![UNETR on a synthetic head](examples/outputs/transformer3d_unetr.png)
+
 **Movies over changing inputs.** Stages, channels, colours and scales stay fixed across frames,
 so everything that moves is the network responding:
 
@@ -91,6 +98,7 @@ so everything that moves is the network responding:
 | [`movie_pan_vit.mp4`](examples/outputs/movie_pan_vit.mp4) | The same pan through a vision transformer. |
 | [`movie_aging.mp4`](examples/outputs/movie_aging.mp4) | One synthetic subject ages while a lesion grows. Predicted brain age, lesion probability and the 3-D segmentation track it. |
 | [`movie_cxr_occlusion.mp4`](examples/outputs/movie_cxr_occlusion.mp4) | A grey patch slides over a chest X-ray. Cardiomegaly drops when the patch covers the heart. |
+| [`movie_sliding_window_unetr.mp4`](examples/outputs/movie_sliding_window_unetr.mp4) | 3-D inference: UNETR segments a whole head one window at a time while the fused segmentation assembles. |
 
 **A slide deck made from these outputs.** [`docs/deck/neural_flow_deck.pptx`](docs/deck/neural_flow_deck.pptx)
 is a 15-slide PowerPoint deck with the four movies embedded. It shows what the package produces for
@@ -194,13 +202,14 @@ All examples write to `examples/outputs/`. Figures, movies and the demo models' 
 | [`examples/unet.py`](examples/unet.py) | 2-D U-Net | trained on synthetic microscopy | ~10 s (2 min first time) |
 | [`examples/medical_3d.py`](examples/medical_3d.py) | 3-D U-Net, lesion segmentation | trained on synthetic MRI | ~30 s |
 | [`examples/multihead.py`](examples/multihead.py) | MRI + clinical → 3 heads | trained on synthetic data | ~30 s |
+| [`examples/transformer_3d.py`](examples/transformer_3d.py) | UNETR / Swin UNETR (MONAI), whole-head segmentation with sliding windows; `--movie`, `--flat` | trained on a synthetic head phantom | ~1.5 min (5–15 min first time) |
 | [`examples/movies.py`](examples/movies.py) | pan (ResNet / ViT), ageing subject | as above | 3–8 min each |
-| [`examples/monai_bundle.py`](examples/monai_bundle.py) | any MONAI bundle; default **MASI UNesT** whole-brain segmentation | real (after checkout) | ~2 min |
+| [`examples/monai_bundle.py`](examples/monai_bundle.py) | any MONAI bundle; default **MASI UNesT** whole-brain segmentation (133 structures), sliding windows | real (after `neural-flow fetch unest`) | a few min |
 | [`examples/extras.py`](examples/extras.py) | HTML explorer, 16:9 / light / SVG variants, light-up GIF | real | ~1 min |
 
 ```bash
 bash examples/run_all.sh                 # regenerate everything
-python tools/checkout_real_models.py     # fetch UNesT + MNI152 + torchvision weights (internet needed)
+neural-flow fetch all                    # fetch ResNet-50, ViT, chest X-ray, UNesT + MNI152 (internet needed)
 ```
 
 Details for each example: [docs/examples.md](docs/examples.md). Real models and MONAI bundles:
@@ -216,6 +225,7 @@ Details for each example: [docs/examples.md](docs/examples.md). Real models and 
 | [API reference](docs/api.md) | every public function and every `FlowConfig` option |
 | [Examples](docs/examples.md) | what each example shows and how to run it |
 | [Movies](docs/movies.md) | `animate_inputs`, input sequences, what is held fixed |
+| [3-D models](docs/volumes_3d.md) | voxel spacing, UNETR / Swin UNETR / UNesT, sliding-window output, 3-D inference movies, flat view |
 | [Real models](docs/real_models.md) | checkout script, MONAI bundles, UNesT |
 | [Cinematic style](docs/cinematic.md) | the visual language and the maths behind beams, circles and lines |
 | [Stage selection](docs/stage_selection.md) | how the 5–12 stages are chosen |
@@ -223,6 +233,8 @@ Details for each example: [docs/examples.md](docs/examples.md). Real models and 
 | [Topology](docs/topology.md) | hooks, runtime dataflow tracing, `torch.fx` findings |
 | [Architecture](docs/architecture.md) | package layout and data flow for contributors |
 | [Troubleshooting](docs/troubleshooting.md) | common problems and fixes |
+| [References](docs/references.md) | papers behind every demo model and method |
+| [About](docs/about.md) | why this project exists and how it was built (with Claude, `claude-opus-5-5`) |
 
 ## How it works (in one paragraph)
 

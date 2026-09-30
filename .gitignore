@@ -33,3 +33,6 @@ Claude outputs/
 website/_src/
 website/_site/
 website/_media_cache/
+
+# output of tools/test_unest.sh
+unest_check/

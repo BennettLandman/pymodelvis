@@ -11,6 +11,7 @@
 
 * [API reference](api.md): every function and every option
 * [Movies](movies.md): input sequences, what is held fixed, cost
+* [3-D models](volumes_3d.md): voxel spacing, UNETR / Swin UNETR / UNesT, sliding windows, 3-D inference movies
 * [Real models](real_models.md): pretrained weights, MONAI bundles, MASI UNesT
 * [Troubleshooting](troubleshooting.md)
 
@@ -25,4 +26,5 @@
 **Other**
 
 * [Slide deck](deck/README.md): the example PowerPoint and how to rebuild it
-* [References](references.md)
+* [References](references.md): the papers behind every demo model and method
+* [About](about.md): why this project exists and how it was built

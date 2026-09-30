@@ -61,6 +61,11 @@ model rather than decorating it:
   and the segmented volume should grow.
 * **Occlusion sweep** (`movie_cxr_occlusion.mp4`): Cardiomegaly should drop when the heart is
   covered. It does, and the model then prefers Hernia.
+* **3-D inference** (`movie_sliding_window_unetr.mp4`): a 3-D segmentation network sees one window
+  at a time. Each frame is one sliding window; the stages follow the window through the head while
+  the fused whole-head segmentation assembles in the output card, and the film strip shows where the
+  window is. `sliding_window_movie(...)`, `neural-flow movie MODEL --inference scan.nii.gz`, or
+  `python examples/transformer_3d.py --movie`. See [3-D models](volumes_3d.md).
 
 ## Cost
 

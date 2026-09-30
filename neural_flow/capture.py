@@ -232,6 +232,7 @@ class TraceResult:
     outputs: List[Tuple[str, Tuple[int, ...], Optional[int]]]  # (path, shape, node)
     dataflow_ok: bool
     notes: List[str] = field(default_factory=list)
+    meta: Dict[str, Any] = field(default_factory=dict)      # set by adapters during stage selection
 
     def calls_in_order(self) -> List[ModuleCall]:
         return sorted(self.calls.values(), key=lambda c: c.start)

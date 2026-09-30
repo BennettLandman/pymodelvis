@@ -88,7 +88,10 @@ blocks, and the output as a glass brain with an opaque lesion.
 python examples/medical_3d.py --style cinematic
 python examples/medical_3d.py --mode projection      # or ortho, montage
 python examples/medical_3d.py --style story
+python examples/medical_3d.py --style cinematic --thick   # 1 × 1 × 3 mm voxels, drawn to scale
 ```
+
+![](../examples/outputs/medical_3d_cinematic_thick.png)
 
 ## 6. Multi-input, multi-head (`multihead.py`)
 
@@ -102,35 +105,61 @@ clinical MLP, fusion → three heads: lesion segmentation, lesion present (sigmo
 python examples/multihead.py --style cinematic
 ```
 
-## 7. Movies (`movies.py`, `chest_xray.py --movie`)
+## 7. 3-D transformer U-Nets: UNETR and Swin UNETR (`transformer_3d.py`)
+
+![](../examples/outputs/transformer3d_unetr.png)
+
+MONAI's UNETR and Swin UNETR, trained here on 64³ windows of a synthetic whole-head phantom with five
+labelled structures (scalp / skull, cortex, white matter, ventricles, lesion; `synthetic.head_labels`).
+The transformer blocks / levels are stages of their own, the decoder is drawn as a U with the
+transformer taps as skip bridges, and the output card shows the whole head (96 × 112 × 96 voxels of
+1.6 mm) fused from every sliding window, with the traced window outlined.
+
+```bash
+python examples/transformer_3d.py                          # UNETR (trains ~5 min on first run)
+python examples/transformer_3d.py --model swinunetr        # Swin UNETR (~15 min on first run)
+python examples/transformer_3d.py --flat                   # optional squashed 2-D view
+python examples/transformer_3d.py --movie                  # sliding-window inference, window by window
+```
+
+![](../examples/outputs/transformer3d_swinunetr.png)
+
+![](../examples/outputs/transformer3d_unetr_flat.png)
+
+Models: UNETR (Hatamizadeh et al., WACV 2022) and Swin UNETR (Hatamizadeh et al., BrainLes 2021),
+both from MONAI (Cardoso et al., 2022). See [3-D models](volumes_3d.md).
+
+## 8. Movies (`movies.py`, `chest_xray.py --movie`, `transformer_3d.py --movie`)
 
 ```bash
 python examples/movies.py pan      # ResNet-50 camera pan across four photos
 python examples/movies.py vit      # the same pan through ViT-B/16
 python examples/movies.py aging    # one synthetic subject ages; a lesion appears and grows
 python examples/movies.py all --frames 48 --fps 8 [--gif]
+python examples/transformer_3d.py --movie       # 3-D inference: UNETR segments a whole head window by window
 ```
 
 See [movies.md](movies.md).
 
-## 8. Any MONAI bundle / MASI UNesT (`monai_bundle.py`)
+## 9. Any MONAI bundle / MASI UNesT (`monai_bundle.py`)
 
 Builds the network, weights and preprocessing from a bundle's own `configs/inference.json`.
-The default is MASI's UNesT whole-brain segmentation (133 labels). See
-[real_models.md](real_models.md).
+The default is MASI's UNesT whole-brain segmentation (133 structures; Yu et al., Medical Image
+Analysis 2023). The NesT transformer levels become stages, and the output card shows the whole brain
+fused from sliding windows. See [real_models.md](real_models.md).
 
 ```bash
-python tools/checkout_real_models.py --only unest
+neural-flow fetch unest                   # bundle sources from GitHub, weights from NVIDIA, MNI152 template
 python examples/monai_bundle.py
-python examples/monai_bundle.py --movie
+python examples/monai_bundle.py --movie   # sliding-window inference over the whole head
 ```
 
-## 9. Extras (`extras.py`)
+## 10. Extras (`extras.py`)
 
 Interactive HTML explorer (`resnet50_interactive.html`), a 16:9 cinematic figure, a light-theme
 cinematic figure, an SVG, and the "light-up" GIF from `animate_model`.
 
-## 10. The slide deck (`docs/deck/`)
+## 11. The slide deck (`docs/deck/`)
 
 [`neural_flow_deck.pptx`](deck/neural_flow_deck.pptx) is a 15-slide deck built entirely from these
 outputs. It has title, scoping, design criteria, an examples summary, one slide per example, two

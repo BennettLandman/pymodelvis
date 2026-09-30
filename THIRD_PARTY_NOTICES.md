@@ -24,8 +24,10 @@ contains or downloads the following third-party material, under its own terms.
 |---|---|---|
 | ResNet-50, ViT-B/16 weights | timm GitHub releases; torchvision | Apache-2.0 (timm) / BSD-3-Clause (torchvision); ImageNet-trained weights may carry dataset terms |
 | DenseNet-121 chest X-ray weights | TorchXRayVision | Apache-2.0 |
-| UNesT whole-brain segmentation bundle | MONAI Model Zoo | see the bundle's `LICENSE` / `metadata.json` |
+| UNesT whole-brain segmentation bundle (`wholeBrainSeg_Large_UNEST_segmentation`) | MONAI Model Zoo (Vanderbilt University + MONAI team); sources from GitHub, weights from NVIDIA | Apache-2.0 (bundle `LICENSE`); cite Yu et al., Medical Image Analysis 2023 |
 | MNI152 2009 T1 template | via nilearn | see the MNI / McConnell Brain Imaging Centre terms |
 
-Trained weights for the demo models in `examples/outputs/*.pt` were produced by this project's
-example scripts from synthetic data and are released under the project license.
+Trained weights for the demo models in `examples/outputs/*.pt` (2-D U-Net, 3-D U-Net, multi-head
+network, and the MONAI UNETR / Swin UNETR architectures) were produced by this project's example
+scripts from synthetic data and are released under the project license. The UNETR and Swin UNETR
+network code is MONAI's (Apache-2.0).

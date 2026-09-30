@@ -66,6 +66,19 @@ def _add_input_prep_args(p: argparse.ArgumentParser) -> None:
     g.add_argument("--mean", type=float, nargs="+", default=None, help="per-channel mean for normalisation")
     g.add_argument("--std", type=float, nargs="+", default=None, help="per-channel std for normalisation")
     g.add_argument("--crop", type=int, default=None, help="3-D: crop an N³ ROI around the centre of mass")
+    v = p.add_argument_group("3-D volumes")
+    v.add_argument("--spacing", type=float, nargs=3, metavar=("SX", "SY", "SZ"), default=None,
+                   help="voxel size per axis (default: read from the NIfTI header); draws true proportions")
+    v.add_argument("--no-spacing", action="store_true", help="ignore voxel spacing (draw voxels as cubes)")
+    v.add_argument("--sliding-window", action="store_true",
+                   help="trace one ROI window, show the whole-volume output fused from all windows")
+    v.add_argument("--roi", type=int, nargs="+", default=None, metavar="N",
+                   help="sliding-window size, e.g. 96 or 96 96 64 (default: --crop, the bundle's ROI, or 96)")
+    v.add_argument("--sw-overlap", type=float, default=None, help="sliding-window overlap (default 0.25)")
+    v.add_argument("--roi-center", type=int, nargs=3, default=None, metavar=("X", "Y", "Z"),
+                   help="voxel the traced window is centred on (default: centre of the foreground)")
+    v.add_argument("--flat-3d", nargs="?", const="max", choices=["max", "mean"], default=None,
+                   help="draw 3-D stages as squashed 2-D projections (optional; default: true 3-D)")
 
 
 def _add_view_args(p: argparse.ArgumentParser, movie: bool = False) -> None:
@@ -130,6 +143,17 @@ def _config_kwargs(a, lm) -> Dict[str, Any]:
         kw["output_types"] = ot
     if "top_k" not in kw and names and len(names) > 3:
         kw["top_k"] = 5
+    if getattr(a, "_spacing", None) is not None and not getattr(a, "no_spacing", False):
+        kw["voxel_spacing"] = tuple(a._spacing)
+    if getattr(a, "flat_3d", None):
+        kw["flat_3d"] = a.flat_3d
+    if getattr(a, "sliding_window", False):
+        kw["sliding_window"] = True
+        kw["roi_size"] = _roi(a, lm)
+        if a.sw_overlap is not None:
+            kw["sw_overlap"] = a.sw_overlap
+        if a.roi_center:
+            kw["roi_center"] = tuple(a.roi_center)
     for item in getattr(a, "set", []) or []:
         k, _, v = item.partition("=")
         try:
@@ -137,6 +161,15 @@ def _config_kwargs(a, lm) -> Dict[str, Any]:
         except (ValueError, SyntaxError):
             kw[k] = v
     return kw
+
+
+def _roi(a, lm):
+    if getattr(a, "roi", None):
+        r = tuple(a.roi)
+        return r * 3 if len(r) == 1 else r
+    if getattr(a, "crop", None):
+        return (a.crop,) * 3
+    return tuple(lm.roi) if lm.roi else (96, 96, 96)
 
 
 def _load(a):
@@ -170,7 +203,11 @@ def _inputs(a, lm):
             named[k] = v
         else:
             named[f"_{len(named)}"] = s
-    tensors = {k: load_input(v, lm, a.size, a.crop, not a.no_center_crop).to(a.device) for k, v in named.items()}
+    info: Dict[str, Any] = {}
+    whole = bool(getattr(a, "sliding_window", False))
+    tensors = {k: load_input(v, lm, a.size, a.crop, not a.no_center_crop, info=info, whole=whole).to(a.device)
+               for k, v in named.items()}
+    a._spacing = getattr(a, "spacing", None) or info.get("spacing")
     if len(tensors) == 1 and next(iter(tensors)).startswith("_"):
         return next(iter(tensors.values()))
     if all(k.startswith("_") for k in tensors):
@@ -271,12 +308,17 @@ def _movie_frames(a, lm):
             files += sorted(glob.glob(pat)) if any(ch in pat for ch in "*?[") else [pat]
         if not files:
             raise SystemExit("error: --frames matched no files")
-        return [load_input(f, lm, a.size, a.crop, not a.no_center_crop) for f in files], \
-            [os.path.basename(f) for f in files]
+        info: Dict[str, Any] = {}
+        fr = [load_input(f, lm, a.size, a.crop, not a.no_center_crop, info=info) for f in files]
+        a._spacing = a.spacing or info.get("spacing")
+        return fr, [os.path.basename(f) for f in files]
     if a.volume_sweep:
         from .zoo import crop_volume, read_volume
 
+        from .zoo import volume_spacing
+
         vol = read_volume(a.volume_sweep, lm)
+        a._spacing = a.spacing or volume_spacing(a.volume_sweep)
         roi = (a.crop,) * 3 if a.crop else (lm.roi or (96, 96, 96))
         S = vol.shape[1:]
         zs = torch.linspace(roi[2] / 2, S[2] - roi[2] / 2, a.steps).tolist()
@@ -300,6 +342,9 @@ def cmd_movie(a) -> int:
 
     t0 = time.time()
     lm = _load(a)
+    if getattr(a, "inference", None):
+        return _movie_inference(a, lm, t0)
+    a._spacing = getattr(a, "spacing", None)
     frames, labels = _movie_frames(a, lm)
     kw = _config_kwargs(a, lm)
     kw.setdefault("figsize", (16, 9))
@@ -312,6 +357,29 @@ def cmd_movie(a) -> int:
         frames = frames.to(a.device)
     animate_inputs(lm.model, frames, output=out, fps=a.fps, frame_labels=labels, style=style,
                    hold_last=a.hold, progress=not a.quiet, **kw)
+    print(f"wrote {out}  ({time.time() - t0:.0f}s)")
+    return 0
+
+
+def _movie_inference(a, lm, t0) -> int:
+    from .volume3d import sliding_window_movie
+    from .zoo import load_input
+
+    info: Dict[str, Any] = {}
+    x = load_input(a.inference, lm, info=info, whole=True).to(a.device)
+    if x.dim() != 5:
+        raise SystemExit("error: --inference needs a 3-D volume (NIfTI)")
+    a._spacing = a.spacing or info.get("spacing")
+    kw = _config_kwargs(a, lm)
+    for k in ("sliding_window", "roi_size", "sw_overlap", "roi_center"):
+        kw.pop(k, None)
+    kw.setdefault("figsize", (16, 9))
+    kw.setdefault("dpi", 120)
+    style = kw.pop("style", "cinematic")
+    out = a.output or _default_out(a, "_inference.mp4")
+    sliding_window_movie(lm.model, x, _roi(a, lm), output=out, overlap=a.sw_overlap if a.sw_overlap is not None else 0.25,
+                         max_windows=a.max_windows, fps=a.fps if a.fps != 8 else 3, style=style, hold_last=a.hold,
+                         progress=not a.quiet, **kw)
     print(f"wrote {out}  ({time.time() - t0:.0f}s)")
     return 0
 
@@ -375,17 +443,7 @@ def cmd_fetch(a) -> int:
             zoo.load_model("cxr")
             print(zoo.cxr_sample_path())
         elif w == "unest":
-            dest = os.path.join(zoo.cache_dir(), "monai_bundles", zoo.UNEST_BUNDLE)
-            if not os.path.isdir(dest):
-                try:
-                    from huggingface_hub import snapshot_download
-
-                    snapshot_download(repo_id=f"MONAI/{zoo.UNEST_BUNDLE}", local_dir=dest)
-                except Exception as e:
-                    print(f"huggingface download failed ({e}); trying monai.bundle.download", file=sys.stderr)
-                    from monai.bundle import download
-
-                    download(name=zoo.UNEST_BUNDLE, bundle_dir=os.path.dirname(dest))
+            dest = zoo.fetch_bundle(zoo.UNEST_BUNDLE)
             print(dest)
             try:
                 import nibabel as nib
@@ -462,6 +520,9 @@ def build_parser() -> argparse.ArgumentParser:
     seq.add_argument("--crossfade", nargs=2, metavar=("A", "B"), help="morph from input A to input B")
     seq.add_argument("--frames", nargs="+", metavar="FILE_OR_GLOB", help="explicit frames, e.g. 'scans/*.nii.gz'")
     seq.add_argument("--volume-sweep", metavar="VOLUME", help="3-D: move the ROI window inferior → superior")
+    seq.add_argument("--inference", metavar="VOLUME",
+                     help="3-D: watch sliding-window inference over the whole volume, one window per frame")
+    m.add_argument("--max-windows", type=int, default=None, help="--inference: show at most N windows")
     m.add_argument("--steps", type=int, default=36, help="number of frames for generated sequences (default 36)")
     m.add_argument("--fps", type=int, default=8)
     m.add_argument("--hold", type=int, default=6, help="repeat the last frame N times")

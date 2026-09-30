@@ -397,10 +397,14 @@ def _render(res, frame, th, title, subtitle) -> FlowFigure:
                 if st.kind == "input" and st.summary is not None and st.summary.image is not None:
                     base = st.summary.image
                     break
-            vis = render_segmentation(ov.mask, base, cfg, cfg.volume_axes)
+            ctx = getattr(res, "context", {}) or {}
+            base = ctx.get("seg_base", base)
+            vis = render_segmentation(ov.mask, base, cfg, cfg.volume_axes, fov=ctx.get("seg_fov"),
+                                      boxes=ctx.get("seg_boxes"))
             cn.image = vis.image
             cn.extras["ortho"] = vis.extras.get("ortho")
-            cn.w, cn.h = cn.image.shape[1] / P * 0.9, cn.image.shape[0] / P * 0.9
+            k = 1.45 if ctx.get("sliding_window") and ov.mask.ndim == 3 else 0.9   # whole-volume result: larger
+            cn.w, cn.h = cn.image.shape[1] / P * k, cn.image.shape[0] / P * k
             cn.kind = "segcard"
         else:
             n = min(len(ov.items), 5)

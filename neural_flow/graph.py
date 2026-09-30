@@ -65,6 +65,7 @@ class StageGraph:
     outputs: List[OutputSpec]
     topology_source: str
     notes: List[str] = field(default_factory=list)
+    meta: Dict[str, Any] = field(default_factory=dict)     # adapter annotations (e.g. backbone roles)
 
     def preds(self, key: str) -> List[Edge]:
         return [e for e in self.edges if e.dst == key]

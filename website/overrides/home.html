@@ -169,6 +169,36 @@ animate_inputs(model, frames, output=<s>"pan.mp4"</s>)</pre>
     </div>
   </section>
 
+  <!-- ─────────────────────────── 3-D ─────────────────────────── -->
+  <section class="nf-section nf-section--tight">
+    <div class="nf-wrap">
+      <h2>Built for 3-D medical imaging</h2>
+      <p class="nf-sub">
+        <code>[B, C, X, Y, Z]</code> volumes are first-class. Transformer U-Nets such as UNETR, Swin UNETR and
+        MASI's UNesT show their transformer levels as stages and their decoder as a U; the output card shows
+        the <em>whole scan</em> fused from sliding windows, with the traced window outlined; everything is
+        drawn to scale from the voxel spacing.
+      </p>
+      <figure class="nf-shot nf-shot--wide" style="margin-top:1.6rem">
+        <a class="nf-zoom" href="{{ 'media/transformer3d_unetr.webp' | url }}"
+           data-caption="UNETR on a synthetic head: patch embedding and four transformer blocks on a 4³ token grid, the decoder climbing back to 64³, and the whole head fused from 8 windows.">
+          <img loading="lazy" src="{{ 'media/transformer3d_unetr.webp' | url }}" alt="UNETR activation flow on a 3-D head volume">
+        </a>
+        <figcaption><strong>UNETR · whole-head segmentation</strong>The transformer runs on a 4 × 4 × 4 token grid; its
+          taps bridge to the decoder levels. <a class="nf-link" href="{{ 'volumes_3d/' | url }}">3-D models →</a></figcaption>
+      </figure>
+      <div class="nf-term" style="margin-top:1.6rem">
+        <div class="nf-term__bar"><i></i><i></i><i></i><span>terminal</span></div>
+<pre><span class="c"># MASI UNesT, 133 brain structures, whole brain from sliding windows</span>
+<b>$</b> neural-flow fetch unest
+<b>$</b> neural-flow render unest -i T1_mni.nii.gz --sliding-window --style cinematic
+
+<span class="c"># watch 3-D inference, window by window</span>
+<b>$</b> neural-flow movie unest --inference T1_mni.nii.gz --max-windows 16</pre>
+      </div>
+    </div>
+  </section>
+
   <!-- ─────────────────────────── movies ─────────────────────────── -->
   <section class="nf-section nf-section--movies">
     <div class="nf-wrap">
@@ -183,6 +213,7 @@ animate_inputs(model, frames, output=<s>"pan.mp4"</s>)</pre>
           ("movie_aging", "Ageing subject · multi-head 3-D", "A synthetic subject ages while a lesion grows. Brain age, lesion probability and the segmentation track it."),
           ("movie_cxr_occlusion", "Occlusion · chest X-ray", "A grey patch slides over the radiograph. Cardiomegaly drops when the patch covers the heart."),
           ("movie_pan_vit", "Camera pan · ViT-B/16", "The same four photographs through a vision transformer, token grids and all."),
+          ("movie_sliding_window_unetr", "3-D inference · UNETR", "One sliding window per frame: the stages follow the window through the head while the whole-head segmentation assembles."),
         ] %}
         {% for stem, title, text in movies %}
         <figure class="nf-movie">
@@ -284,6 +315,7 @@ animate_inputs(model, frames, output=<s>"pan.mp4"</s>)</pre>
           <a class="nf-btn nf-btn--primary" href="{{ config.repo_url }}">Star on GitHub</a>
           <a class="nf-btn" href="{{ 'contributing/' | url }}">Contribute</a>
           <a class="nf-btn nf-btn--ghost" href="{{ 'references/' | url }}">References</a>
+          <a class="nf-btn nf-btn--ghost" href="{{ 'about/' | url }}">Why I built this</a>
         </div>
       </div>
       <div class="nf-term">

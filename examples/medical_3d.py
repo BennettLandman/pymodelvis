@@ -84,6 +84,8 @@ def main():
     ap.add_argument("--mode", default="auto", choices=["auto", "volume", "ortho", "montage", "projection"])
     ap.add_argument("--style", default="technical", choices=["technical", "story", "cinematic"])
     ap.add_argument("--format", default="png")
+    ap.add_argument("--thick", action="store_true",
+                    help="thick-slice version (every 3rd slice, 1 x 1 x 3 mm voxels): shows voxel-spacing-aware rendering")
     args = ap.parse_args()
     model = UNet3D()
     ckpt = out_path(f"unet3d_{args.size}_{args.steps}steps.pt")
@@ -94,13 +96,20 @@ def main():
         train(model, args.steps, args.size)
         torch.save(model.state_dict(), ckpt)
     V, M, _, _ = brain_3d(1, args.size, seed=7, lesion_prob=1.0)
-    suffix = ("" if args.mode == "auto" else f"_{args.mode}") + ("" if args.style == "technical" else f"_{args.style}")
+    spacing = None
+    if args.thick:
+        V = V[..., ::3].contiguous()          # keep every 3rd axial slice: 1 x 1 x 3 mm voxels
+        spacing = (1.0, 1.0, 3.0)
+    suffix = ("" if args.mode == "auto" else f"_{args.mode}") + ("" if args.style == "technical" else f"_{args.style}") \
+        + ("_thick" if args.thick else "")
     path = out_path(f"medical_3d{suffix}.{args.format}")
+    shape = "×".join(map(str, V.shape[2:]))
     fig = visualize_model(
-        model, V, output=path, style=args.style, volume_mode=args.mode,
-        title="3-D U-Net · lesion segmentation · activation flow",
-        subtitle=f"synthetic MRI-like volume {args.size}³ [B,C,X,Y,Z] · trained {args.steps} steps · "
-                 f"feature volumes rendered as translucent voxel blocks + activation-driven orthogonal slices",
+        model, V, output=path, style=args.style, volume_mode=args.mode, voxel_spacing=spacing,
+        title="3-D U-Net · lesion segmentation · activation flow" + (" · thick slices" if args.thick else ""),
+        subtitle=(f"synthetic MRI-like volume {shape} [B,C,X,Y,Z]" + (" with 1 × 1 × 3 mm voxels, drawn to scale"
+                  if args.thick else "") + f" · trained {args.steps} steps · feature volumes rendered as "
+                  f"translucent voxel blocks + activation-driven orthogonal slices"),
         output_types={"output": "segmentation"},
     )
     print(fig.flow.summary_table())

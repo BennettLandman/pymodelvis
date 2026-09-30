@@ -12,6 +12,8 @@ shaded voxel blocks, low-resolution volumes keep their blocky voxel character.
 from __future__ import annotations
 
 import base64
+import contextlib
+import contextvars
 import io
 import math
 from dataclasses import dataclass, field
@@ -44,6 +46,54 @@ class Visual:
     def aspect(self) -> float:
         h, w = self.image.shape[:2]
         return w / max(h, 1)
+
+
+# ---------------------------------------------------------------------------
+# physical geometry (voxel spacing)
+# ---------------------------------------------------------------------------
+
+_FOV = contextvars.ContextVar("neural_flow_fov", default=None)
+
+
+@contextlib.contextmanager
+def physical_fov(fov: Optional[Sequence[float]]):
+    """Render 3-D volumes with the given physical field of view (canonical x, y, z; any unit).
+
+    Every volume drawn inside the block – the input and all its feature maps, which
+    cover the same field of view at lower resolution – gets box proportions and
+    slice aspect ratios from ``fov`` instead of from its voxel counts, so a
+    1 × 1 × 5 mm scan is not drawn squashed.
+    """
+    tok = _FOV.set(tuple(float(v) for v in fov) if fov is not None else None)
+    try:
+        yield
+    finally:
+        _FOV.reset(tok)
+
+
+def canonical_fov(spatial: Sequence[int], spacing: Optional[Sequence[float]], axes: str = "xyz"
+                  ) -> Optional[Tuple[float, float, float]]:
+    """Physical extent (canonical x, y, z) of a tensor with spatial dims ``spatial`` and ``spacing``."""
+    if spacing is None or spatial is None or len(spatial) != 3:
+        return None
+    sp = list(spacing)[-3:] if len(spacing) >= 3 else None
+    if sp is None:
+        return None
+    fov = [float(n) * float(d) for n, d in zip(spatial, sp)]
+    if axes == "dhw":
+        fov = [fov[2], fov[1], fov[0]]
+    return tuple(fov)
+
+
+def _extent_for(shape) -> np.ndarray:
+    fov = _FOV.get()
+    return np.array(fov if fov is not None else shape, np.float32)
+
+
+def _plane_dims(k: str, shape) -> Tuple[float, float]:
+    """(rows, cols) physical extent of an ortho plane of a canonical volume."""
+    e = _extent_for(shape)
+    return {"axial": (e[1], e[0]), "coronal": (e[2], e[0]), "sagittal": (e[2], e[1])}[k]
 
 
 # ---------------------------------------------------------------------------
@@ -435,14 +485,14 @@ def _blockify(V: np.ndarray, target: int = 36, gap: Optional[bool] = None):
 
 def raycast(alpha_vol: np.ndarray, rgb_vol: np.ndarray, extent_shape, size: int = 150, azim: float = 35.0,
             elev: float = 22.0, shade: bool = True, wire: bool = True, ref_steps: float = 36.0,
-            depth_cue: float = 0.25) -> RGBA:
+            depth_cue: float = 0.25, sub_boxes: Optional[Sequence] = None) -> RGBA:
     """Orthographic front-to-back compositing of an (alpha, rgb) volume in canonical [x, y, z] order."""
     chans = [alpha_vol[None]] + [rgb_vol[..., i][None] for i in range(3)]
     if shade:
         gx, gy, gz = np.gradient(alpha_vol)
         chans += [gx[None], gy[None], gz[None]]
     vol = torch.as_tensor(np.concatenate(chans, 0), dtype=torch.float32)[None]
-    shape0 = np.array(extent_shape, np.float32)
+    shape0 = _extent_for(extent_shape)
     ext = shape0 / shape0.max()
     r = float(np.linalg.norm(ext)) * 1.02
     right, up, fwd = _camera(azim, elev)
@@ -479,6 +529,8 @@ def raycast(alpha_vol: np.ndarray, rgb_vol: np.ndarray, extent_shape, size: int 
     out[..., 3] = A.numpy()
     if wire:
         _draw_box(out, ext, right, up, fwd, r, size)
+    for lo, hi in (sub_boxes or []):
+        _draw_box(out, ext, right, up, fwd, r, size, color=(0.98, 0.75, 0.25), lo=lo, hi=hi, alpha=(0.55, 1.0))
     return np.clip(out, 0, 1)
 
 
@@ -537,8 +589,14 @@ def render_cutaway(V: np.ndarray, cmap: str = "magma", loc: Optional[Tuple[int, 
     return raycast(alpha0, rgb, shape0, size, azim, elev, shade=True, wire=wire, ref_steps=200.0, depth_cue=0.12)
 
 
-def _draw_box(img: RGBA, ext, right, up, fwd, r: float, size: int, color=(0.55, 0.57, 0.62)) -> None:
-    corners = np.array([[sx, sy, sz] for sx in (-1, 1) for sy in (-1, 1) for sz in (-1, 1)], np.float32) * ext
+def _draw_box(img: RGBA, ext, right, up, fwd, r: float, size: int, color=(0.55, 0.57, 0.62), lo=None, hi=None,
+              alpha=(0.25, 0.7)) -> None:
+    """Wire-frame box; ``lo``/``hi`` (fractions 0..1 per axis) outline a sub-box instead of the whole volume."""
+    lo = np.zeros(3) if lo is None else np.asarray(lo, np.float32)
+    hi = np.ones(3) if hi is None else np.asarray(hi, np.float32)
+    corners = np.array([[(lo[0] if sx < 0 else hi[0]) * 2 - 1, (lo[1] if sy < 0 else hi[1]) * 2 - 1,
+                         (lo[2] if sz < 0 else hi[2]) * 2 - 1]
+                        for sx in (-1, 1) for sy in (-1, 1) for sz in (-1, 1)], np.float32) * ext
     uv = np.stack([corners @ right, corners @ up], 1)
     depth = corners @ fwd
     px = (uv[:, 0] + r) / (2 * r) * (size - 1)
@@ -547,7 +605,7 @@ def _draw_box(img: RGBA, ext, right, up, fwd, r: float, size: int, color=(0.55, 
     edges = [(i, j) for i in range(8) for j in range(i + 1, 8) if bin(i ^ j).count("1") == 1]
     for i, j in edges:
         hidden = far in (i, j)
-        _line(img, px[i], py[i], px[j], py[j], color, 0.25 if hidden else 0.7)
+        _line(img, px[i], py[i], px[j], py[j], color, alpha[0] if hidden else alpha[1])
 
 
 def _line(img, x0, y0, x1, y1, color, alpha):
@@ -632,8 +690,16 @@ def _slice_tiles(sl: Dict[str, np.ndarray], cmap: str, px: int = 96, lo_hi=None,
         else:
             a = robust_norm(a, (1, 99.5), div)
         img = colorize(a, cmap)
-        tiles.append(_resize_to(img, px, int(round(px * a.shape[1] / max(a.shape[0], 1)))))
+        tiles.append(_resize_to(img, px, _tile_width(k, a.shape, px)))
     return tiles
+
+
+def _tile_width(k: str, plane_shape, px: int) -> int:
+    """Tile width for an ortho plane: physical aspect when a field of view is set, else voxel aspect."""
+    if _FOV.get() is not None:
+        r, c = _plane_dims(k, (1, 1, 1))
+        return max(1, int(round(px * c / max(r, 1e-6))))
+    return max(1, int(round(px * plane_shape[1] / max(plane_shape[0], 1))))
 
 
 def _foreground_threshold(Vn: np.ndarray) -> float:
@@ -655,6 +721,13 @@ def _foreground_threshold(Vn: np.ndarray) -> float:
 def render_volume(summ: TensorSummary, cfg: FlowConfig, mode: Optional[str] = None, axes: str = "xyz",
                   strategy: Optional[str] = None, style: str = "technical", size: int = 150,
                   n_vol: Optional[int] = None) -> Visual:
+    with physical_fov(getattr(cfg, "physical_fov", None)):
+        return _render_volume(summ, cfg, mode, axes, strategy, style, size, n_vol)
+
+
+def _render_volume(summ: TensorSummary, cfg: FlowConfig, mode: Optional[str] = None, axes: str = "xyz",
+                   strategy: Optional[str] = None, style: str = "technical", size: int = 150,
+                   n_vol: Optional[int] = None) -> Visual:
     mode = mode or cfg.volume_mode
     is_input = summ.role == "input" and summ.image is not None
     if mode == "auto":
@@ -752,20 +825,55 @@ LABEL_COLORS = np.array([
 ], np.float32)
 
 
+def label_palette(n_labels: int) -> np.ndarray:
+    """RGBA colours for labels 0..n (0 transparent).  Up to 8 labels use the fixed palette; larger
+    label sets (e.g. 133 whole-brain structures) get distinct golden-angle hues."""
+    if n_labels < len(LABEL_COLORS):
+        return LABEL_COLORS
+    import colorsys
+
+    pal = [[0, 0, 0, 0]]
+    for i in range(n_labels):
+        h = (i * 0.61803398875) % 1.0
+        l = 0.55 + 0.12 * ((i // 7) % 2)
+        sat = 0.75 - 0.2 * ((i // 3) % 2)
+        pal.append([*colorsys.hls_to_rgb(h, l, sat), 1.0])
+    return np.array(pal, np.float32)
+
+
+def _label_rgba(labels: np.ndarray) -> np.ndarray:
+    m = labels.astype(int)
+    pal = label_palette(int(m.max()) if m.size else 0)
+    lab = np.where(m > 0, (m - 1) % (len(pal) - 1) + 1, 0)
+    return pal[lab]
+
+
 def seg_rgba(mask: np.ndarray) -> RGBA:
     if mask.dtype.kind == "f":
         img = colorize(np.clip(mask, 0, 1), "magma")
         img[..., 3] = np.clip(mask * 1.2, 0, 1) * 0.85
         return img
-    m = mask.astype(int)
-    lab = np.where(m > 0, (m - 1) % (len(LABEL_COLORS) - 1) + 1, 0)
-    img = LABEL_COLORS[lab].copy()
+    img = _label_rgba(mask).copy()
     img[..., 3] *= 0.6
     return img
 
 
-def render_segmentation(mask: np.ndarray, base: Optional[np.ndarray], cfg: FlowConfig, axes: str = "xyz") -> Visual:
-    """mask: [H,W] or [X,Y,Z] (labels or probabilities); base: input image [C,H,W] / [C,X,Y,Z]."""
+def render_segmentation(mask: np.ndarray, base: Optional[np.ndarray], cfg: FlowConfig, axes: str = "xyz",
+                        fov: Optional[Sequence[float]] = None, boxes: Optional[Sequence] = None) -> Visual:
+    """mask: [H,W] or [X,Y,Z] (labels or probabilities); base: input image [C,H,W] / [C,X,Y,Z].
+
+    ``fov``: physical field of view of ``mask`` (canonical x, y, z); defaults to the
+    figure's input field of view.  ``boxes``: sub-regions ``(lo, hi)`` in canonical
+    voxel coordinates of ``mask`` to outline (e.g. the sliding-window patch).
+    """
+    if mask.ndim == 3:
+        with physical_fov(fov if fov is not None else getattr(cfg, "physical_fov", None)):
+            return _render_segmentation(mask, base, cfg, axes, boxes)
+    return _render_segmentation(mask, base, cfg, axes, boxes)
+
+
+def _render_segmentation(mask: np.ndarray, base: Optional[np.ndarray], cfg: FlowConfig, axes: str = "xyz",
+                         boxes: Optional[Sequence] = None) -> Visual:
     if mask.ndim == 2:
         H, W = mask.shape
         if base is not None and cfg.overlay_segmentation:
@@ -791,16 +899,27 @@ def render_segmentation(mask: np.ndarray, base: Optional[np.ndarray], cfg: FlowC
             B = F.interpolate(torch.as_tensor(B, dtype=torch.float32)[None, None], size=M.shape, mode="trilinear",
                               align_corners=False)[0, 0].numpy()
     fg = (labels > 0).astype(np.float32)
-    lab_rgb = LABEL_COLORS[np.where(labels > 0, (labels - 1) % (len(LABEL_COLORS) - 1) + 1, 0)][..., :3]
+    lab_rgb = _label_rgba(labels)[..., :3]
+    fg_alpha = fg * 0.9
+    present = np.unique(labels[labels > 0]) if fg.any() else np.array([], int)
+    if len(present) >= 3:
+        # many structures: large ones (scalp, white matter …) become glass so small, deep ones stay visible
+        sizes = np.bincount(labels.reshape(-1).astype(np.int64))
+        ref = float(np.percentile(sizes[present], 20))
+        la = np.zeros(len(sizes), np.float32)
+        la[present] = 0.9 * np.clip(ref / sizes[present], 0.04, 1.0)
+        fg_alpha = la[labels.astype(np.int64)]
     if B is not None:
         Bn = robust_norm(B, (1, 99.5))
         tissue = (Bn > _foreground_threshold(Bn)).astype(np.float32)
-        alpha = np.maximum(tissue * 0.05 * (0.4 + Bn), fg * 0.9)
+        alpha = np.maximum(tissue * 0.05 * (0.4 + Bn), fg_alpha)
         rgb = np.where(fg[..., None] > 0, lab_rgb, np.repeat(Bn[..., None], 3, -1) * 0.8 + 0.1)
     else:
-        alpha = fg * 0.9
+        alpha = fg_alpha
         rgb = lab_rgb
-    cube = raycast(alpha.astype(np.float32), rgb.astype(np.float32), fg.shape, 200, shade=True, ref_steps=64.0)
+    cube = raycast(alpha.astype(np.float32), rgb.astype(np.float32), fg.shape, 200, shade=True, ref_steps=64.0,
+                   sub_boxes=[(np.asarray(lo) / np.array(fg.shape), np.asarray(hi) / np.array(fg.shape))
+                              for lo, hi in (boxes or [])])
     loc = center_of_mass(fg) if fg.sum() > 0 else tuple(s // 2 for s in fg.shape)
     tiles = []
     base_sl = ortho_slices(B if B is not None else np.zeros_like(fg), loc)
@@ -808,7 +927,7 @@ def render_segmentation(mask: np.ndarray, base: Optional[np.ndarray], cfg: FlowC
     for k in ("axial", "coronal", "sagittal"):
         u = colorize(robust_norm(base_sl[k], (1, 99.5)), "gray")
         alpha_over(u, seg_rgba(lab_sl[k]), 0, 0)
-        tiles.append(_resize_to(u, 80, int(80 * u.shape[1] / u.shape[0])))
+        tiles.append(_resize_to(u, 80, _tile_width(k, u.shape, 80)))
     return Visual(cube, "volume", extras={"ortho": mosaic(tiles, cols=3, gap=3)}, meta={"loc": loc})
 
 

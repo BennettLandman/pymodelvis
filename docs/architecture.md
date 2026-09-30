@@ -26,7 +26,11 @@ neural_flow/
   animate.py       "light-up" animation of a single input
   movie.py         movies over changing inputs
   sequences.py     input-sequence generators
-  adapters/        architecture families: cnn, unet, transformer, medical3d
+  volume3d.py      3-D helpers: sliding-window inference and its movie, flat_3d projections
+  zoo.py           model / input loading for the command line (aliases, bundles, NIfTI + spacing)
+  cli.py           the `neural-flow` command
+  adapters/        architecture families: transformer-unet (UNETR / Swin UNETR / UNesT), unet,
+                   transformer, medical3d, cnn
   fonts/           Inter (SIL OFL)
 ```
 

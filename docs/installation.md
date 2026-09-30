@@ -41,7 +41,7 @@ folder isn't on `PATH`. `python -m neural_flow …` always works.
 | `examples` | `torchvision`, `timm`, `scikit-image`, `torchxrayvision` | the example scripts (ResNet, ViT, chest X-ray, sample photos) |
 | `animation` | `imageio`, `imageio-ffmpeg` | MP4 output (GIF works without it) |
 | `medical` | `monai`, `nibabel`, `einops`, `nilearn` | MONAI bundles (UNesT), NIfTI I/O, the MNI152 template |
-| `dev` | `pytest`, `torchvision` | running the tests |
+| `dev` | `pytest`, `torchvision`, `monai`, `nibabel` | running the tests (including the 3-D transformer tests) |
 | `all` | everything above | |
 
 ```bash

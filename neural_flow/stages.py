@@ -281,9 +281,30 @@ def select_by(selectors: Sequence[str], trace: TraceResult) -> List[ModuleCall]:
     return chosen
 
 
-def select_stages(trace: TraceResult, cfg: FlowConfig) -> List[ModuleCall]:
-    """Return the module calls to display, in execution order."""
-    if cfg.layers:
+def select_stages(trace: TraceResult, cfg: FlowConfig, adapters: Sequence = ()) -> List[ModuleCall]:
+    """Return the module calls to display, in execution order.
+
+    With ``layer_selection="auto"`` an architecture adapter may propose the stages
+    (e.g. the transformer levels of a UNETR / SwinUNETR / UNesT); otherwise the
+    generic module-tree cut is used.
+    """
+    proposed = None
+    if not cfg.layers and cfg.layer_selection == "auto":
+        for a in adapters:
+            fn = getattr(a, "select", None)
+            if fn is None:
+                continue
+            try:
+                proposed = fn(trace, cfg)
+            except Exception as e:  # an adapter must never break the figure
+                warnings.warn(f"neural_flow: adapter {getattr(a, 'name', a)} stage proposal failed ({e}); "
+                              f"using generic selection")
+                proposed = None
+            if proposed:
+                break
+    if proposed:
+        chosen = list(proposed)
+    elif cfg.layers:
         chosen = select_by(list(cfg.layers), trace)
     elif callable(cfg.layer_selection):
         chosen = [c for c in trace.calls_in_order()

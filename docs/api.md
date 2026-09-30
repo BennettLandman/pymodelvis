@@ -46,6 +46,17 @@ written. See [movies.md](movies.md).
 
 A single input; stages light up one after another in data-flow order.
 
+### `neural_flow.volume3d` (3-D models)
+
+| function | does |
+|---|---|
+| `sliding_window_movie(model, volume, roi, output="sliding_window.mp4", *, overlap=0.25, max_windows=None, fps=4, title=None, subtitle=None, **options) -> str` | movie of whole-volume inference: one frame per window, the stages following the window, the fused segmentation assembling in the output card |
+| `sliding_window_infer(model, x, roi, overlap=0.25, max_mb=1500, callback=None) -> SlidingWindowState` | Gaussian-weighted sliding-window fusion of every dense output of `x` `[1, C, X, Y, Z]`; `state.fused(name)` returns labels `[1, 1, *S]` (multi-class) or values (single channel) |
+| `patch_grid(spatial, roi, overlap)` | window start positions, raster order |
+| `flatten_result(result, how="max")` | what `flat_3d=True` does, on an existing result |
+
+See [3-D models](volumes_3d.md).
+
 ### `neural_flow.sequences`
 
 | function | returns |
@@ -93,6 +104,13 @@ may adjust defaults you have not set yourself; for example, 3-D models rank chan
 | `volume_style` | `"voxels"` | 3-D volume rendering: `voxels`, `cutaway`, `glow` |
 | `projection` | `"max"` | `max`, `mean`, `meanabs` for `volume_mode="projection"` |
 | `volume_axes` | `"xyz"` | `xyz` (nibabel/MONAI `[X, Y, Z]`) or `dhw` (slice stack `[D, H, W]`) |
+| `voxel_spacing` | `None` | voxel size per spatial axis (tensor order), e.g. `(1, 1, 3)`; volumes are drawn to physical scale |
+| `flat_3d` | `False` | `True` / `"max"` / `"mean"`: draw 3-D stages as squashed 2-D projections |
+| `sliding_window` | `False` | trace one window, show the whole-volume output fused from all windows (needs `roi_size`) |
+| `roi_size` | `None` | sliding-window size, e.g. `(96, 96, 96)` |
+| `roi_center` | foreground centre | voxel the traced window is centred on |
+| `sw_overlap` | `0.25` | sliding-window overlap |
+| `sw_max_mb` | `1500` | memory budget for fused logits (coarser accumulation grid above it) |
 | `token_mode` | `"auto"` | `grid`, `heatmap`, `pca`, `l2`, `mean` |
 | `cls_tokens`, `patch_grid` | inferred | number of leading special tokens; `(rows, cols)` of patch tokens |
 | `channels_last` | inferred | force `[B, H, W, C]` interpretation |
@@ -149,6 +167,10 @@ may adjust defaults you have not set yourself; for example, 3-D models rank chan
 |---|---|
 | `force_channels` | `{stage key: [channel ids]}` shown in every frame |
 | `force_pca` | `{stage key: (loadings [3, C], mean [C])}` fixed PCA colour basis |
+| `physical_fov` | physical field of view `(x, y, z)`, computed from `voxel_spacing` |
+
+`animate_inputs` also accepts `frame_hook(t, result)` (edit a frame's result before it is drawn) and
+`thumb_fn(t, result)` (film-strip image), which `sliding_window_movie` uses.
 
 ## `FlowResult`
 
@@ -162,13 +184,16 @@ may adjust defaults you have not set yourself; for example, 3-D models rank chan
 | `rollout` | attention-rollout matrix (transformers), if captured |
 | `trace` | raw metadata pass: every module call, shapes, dataflow ops |
 | `notes` | warnings and summarization notes |
+| `context` | extras such as the sliding-window geometry (`context["sliding_window"]`) |
 | `summary_table()` | text table of stages and outputs |
 
 ## Extending
 
-* **Adapters**: subclass `neural_flow.adapters.Adapter` (`match`, `defaults`, `concepts`) and
-  register it with `neural_flow.adapters.register_adapter(...)` to add defaults and conceptual
-  stage names for an architecture family.
+* **Adapters**: subclass `neural_flow.adapters.Adapter` (`match`, `defaults`, `concepts`, and
+  optionally `select(trace, cfg)` to propose the stages) and register it with
+  `neural_flow.adapters.register_adapter(...)` to add defaults, stage choice and conceptual stage
+  names for an architecture family. `HybridTransformerUNetAdapter` (UNETR / Swin UNETR / UNesT) is an
+  example of a `select`.
 * **Custom output semantics**: `output_interpreter`.
 * **Custom stage choice**: `layer_selection=callable` receives each `ModuleCall` (`name`,
   `type_name`, `call_index`, `in_shapes`, `out_shapes`, `n_params`, `depth`, …).

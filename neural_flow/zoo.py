@@ -261,9 +261,93 @@ def load_bundle(bdir: str) -> LoadedModel:
     mp = os.path.join(bdir, "configs", "metadata.json")
     if os.path.exists(mp):
         meta = json.load(open(mp))
+    names = None
+    try:
+        outs = meta.get("network_data_format", {}).get("outputs", {})
+        cd = next(iter(outs.values())).get("channel_def") if outs else None
+        if cd:
+            names = [cd[str(i)] for i in range(len(cd))]
+    except Exception:
+        names = None
     lm = LoadedModel(net.eval(), meta.get("name") or os.path.basename(bdir.rstrip("/")), preset="volume",
-                     output_types={"output": "segmentation"}, roi=roi, preprocess=pre)
+                     output_types={"output": "segmentation"}, roi=roi, preprocess=pre, class_names=names)
+    if not wts:
+        lm.notes.append("bundle has no models/*.pt: random weights")
+        warnings.warn(f"MONAI bundle {bdir} has no weights in models/; the network has random weights")
     return lm
+
+
+# files of the MONAI model-zoo bundle, fetched from GitHub when Hugging Face / NGC are unreachable
+_ZOO_RAW = "https://raw.githubusercontent.com/Project-MONAI/model-zoo/dev/models/{bundle}/{path}"
+_UNEST_FILES = ["configs/inference.json", "configs/metadata.json", "configs/logging.conf", "LICENSE",
+                "docs/README.md", "large_files.yml", "scripts/__init__.py", "scripts/networks/__init__.py",
+                "scripts/networks/unest_base_patch_4.py", "scripts/networks/nest_transformer_3D.py",
+                "scripts/networks/unest_block.py", "scripts/networks/patchEmbed3D.py",
+                "scripts/networks/nest/__init__.py", "scripts/networks/nest/utils.py"]
+
+
+def fetch_bundle(bundle: str = UNEST_BUNDLE, dest: Optional[str] = None, quiet: bool = False) -> str:
+    """Download a MONAI model-zoo bundle into the cache.
+
+    Tries, in order: Hugging Face (``MONAI/<bundle>``), the model-zoo sources on GitHub plus
+    the weight URL listed in the bundle's ``large_files.yml``, and ``monai.bundle.download``.
+    """
+    import hashlib
+
+    dest = dest or os.path.join(cache_dir(), "monai_bundles", bundle)
+    if os.path.isdir(dest) and glob.glob(os.path.join(dest, "models", "*.pt")):
+        return dest
+    errors = []
+    try:
+        from huggingface_hub import snapshot_download
+
+        snapshot_download(repo_id=f"MONAI/{bundle}", local_dir=dest)
+        if glob.glob(os.path.join(dest, "models", "*.pt")):
+            return dest
+    except Exception as e:
+        errors.append(f"huggingface: {type(e).__name__}")
+    try:
+        files = _UNEST_FILES if bundle == UNEST_BUNDLE else ["configs/inference.json", "configs/metadata.json",
+                                                               "large_files.yml", "LICENSE"]
+        for rel in files:
+            p = os.path.join(dest, rel)
+            if os.path.exists(p):
+                continue
+            os.makedirs(os.path.dirname(p), exist_ok=True)
+            if not quiet:
+                print(f"  {rel}", file=sys.stderr)
+            urllib.request.urlretrieve(_ZOO_RAW.format(bundle=bundle, path=rel), p + ".part")
+            os.replace(p + ".part", p)
+        lf = open(os.path.join(dest, "large_files.yml")).read()
+        import re as _re
+
+        for m in _re.finditer(r'path:\s*"?([^"\n]+)"?\s*\n\s*url:\s*"?([^"\n]+)"?(?:\s*\n\s*hash_val:\s*"?([0-9a-f]*)"?)?', lf):
+            rel, url, md5 = m.group(1).strip(), m.group(2).strip(), (m.group(3) or "").strip()
+            p = os.path.join(dest, rel)
+            if os.path.exists(p):
+                continue
+            os.makedirs(os.path.dirname(p), exist_ok=True)
+            if not quiet:
+                print(f"  {rel}  ← {url}", file=sys.stderr)
+            urllib.request.urlretrieve(url, p + ".part")
+            if md5:
+                h = hashlib.md5(open(p + ".part", "rb").read()).hexdigest()
+                if h != md5:
+                    raise RuntimeError(f"checksum mismatch for {rel}")
+            os.replace(p + ".part", p)
+        if glob.glob(os.path.join(dest, "models", "*.pt")):
+            return dest
+    except Exception as e:
+        errors.append(f"github/url: {type(e).__name__}: {e}")
+    try:
+        from monai.bundle import download
+
+        download(name=bundle, bundle_dir=os.path.dirname(dest))
+        if glob.glob(os.path.join(dest, "models", "*.pt")):
+            return dest
+    except Exception as e:
+        errors.append(f"monai.bundle.download: {type(e).__name__}")
+    raise RuntimeError(f"could not download bundle {bundle} ({'; '.join(errors)})")
 
 
 def _python_object(spec: str, model_args: Optional[dict]) -> LoadedModel:
@@ -415,12 +499,25 @@ def crop_volume(vol: torch.Tensor, roi: Sequence[int], center=None) -> torch.Ten
     return out[None]
 
 
+def volume_spacing(path: str) -> Optional[Tuple[float, float, float]]:
+    """Voxel size (mm) of a NIfTI / MGH / NRRD-like volume from its header, in array axis order."""
+    try:
+        import nibabel as nib
+
+        z = nib.load(path).header.get_zooms()[:3]
+        z = tuple(float(v) for v in z)
+        return z if len(z) == 3 and all(v > 0 for v in z) else None
+    except Exception:
+        return None
+
+
 def load_input(spec: str, lm: LoadedModel, size: Optional[int] = None, crop: Optional[int] = None,
-               center_crop: bool = True) -> torch.Tensor:
+               center_crop: bool = True, info: Optional[dict] = None, whole: bool = False) -> torch.Tensor:
     """Turn an input spec into a batched tensor for ``lm.model``.
 
     ``spec`` is an image file, a NIfTI volume, a ``.npy`` / ``.pt`` tensor, ``random:1,3,224,224``,
-    ``sample:cat`` or ``sample:cxr``.
+    ``sample:cat`` or ``sample:cxr``.  For volumes, ``info["spacing"]`` receives the voxel size from
+    the header; ``whole=True`` returns the whole volume (no ROI crop, e.g. for sliding windows).
     """
     low = spec.lower()
     if low.startswith("random:"):
@@ -436,7 +533,9 @@ def load_input(spec: str, lm: LoadedModel, size: Optional[int] = None, crop: Opt
         return t.float() if t.is_floating_point() else t
     if low.endswith(VOLUME_EXT):
         vol = read_volume(spec, lm)
-        roi = (crop,) * 3 if crop else lm.roi
+        if info is not None:
+            info["spacing"] = volume_spacing(spec)
+        roi = None if whole else ((crop,) * 3 if crop else lm.roi)
         return crop_volume(vol, roi) if roi else vol[None]
     if low.startswith("sample:") or low.endswith(IMAGE_EXT):
         return image_to_tensor(read_image(spec), lm, size, center_crop)

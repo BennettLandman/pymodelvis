@@ -101,7 +101,7 @@ def interpret_output(name: str, t: Optional[torch.Tensor], summary, cfg: FlowCon
     if arr.ndim in (3, 4) and (otype in (None, "segmentation")):
         spatial = arr.shape[1:]
         looks_seg = otype == "segmentation" or SEG_NAME.search(hint) is not None or (
-            input_spatial is not None and tuple(spatial) == tuple(input_spatial) and arr.shape[0] <= 64)
+            input_spatial is not None and tuple(spatial) == tuple(input_spatial) and arr.shape[0] <= 256)
         if looks_seg or is_labels:
             if is_labels and arr.shape[0] == 1:
                 lab = arr[0].astype(np.int32)

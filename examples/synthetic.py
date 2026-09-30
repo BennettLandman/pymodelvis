@@ -127,3 +127,54 @@ def brain_3d(n: int, size: int = 64, seed: int = 0, lesion_prob: float = 0.6):
         vol += 0.03 * rng.standard_normal(vol.shape).astype(np.float32)
         V[i, 0] = vol
     return torch.from_numpy(V), torch.from_numpy(M), torch.from_numpy(has), torch.from_numpy(age)
+
+
+TISSUE_LABELS = ["background", "scalp / skull", "cortex", "white matter", "ventricles", "lesion"]
+
+
+def head_labels(shape=(96, 112, 96), seed: int = 0, lesion: bool = True, spacing=(1.6, 1.6, 1.6)):
+    """A whole-head MRI-like phantom with a 5-structure label map, for whole-volume (sliding-window) demos.
+
+    Returns ``volume [X, Y, Z]`` (float32) and ``labels [X, Y, Z]`` (int64, see ``TISSUE_LABELS``) in
+    canonical order (x: left→right, y: posterior→anterior, z: inferior→superior).  Geometry is defined in
+    millimetres, so ``spacing`` (mm per voxel) changes the sampling but not the anatomy: a 1 × 1 × 3 mm
+    grid gives a thick-slice version of the same head.  With the default 1.6 mm grid the field of view is
+    154 × 179 × 154 mm around a ~130 × 150 × 125 mm head, so a 64-voxel (102 mm) window sees part of it.
+    """
+    rng = np.random.default_rng(seed)
+    sx, sy, sz = spacing
+    X, Y, Z = shape
+    fx, fy, fz = X * sx / 2, Y * sy / 2, Z * sz / 2
+    x, y, z = np.meshgrid(((np.arange(X) + 0.5) * sx - fx), ((np.arange(Y) + 0.5) * sy - fy),
+                          ((np.arange(Z) + 0.5) * sz - fz), indexing="ij")
+    x, y, z = x.astype(np.float32), y.astype(np.float32), z.astype(np.float32)
+    a = rng.uniform(62, 68)
+    b = a * rng.uniform(1.12, 1.2)
+    c = a * rng.uniform(0.92, 1.0)
+    head = (x / a) ** 2 + (y / b) ** 2 + ((z + 6) / c) ** 2
+    vol = np.zeros(shape, np.float32)
+    lab = np.zeros(shape, np.int64)
+    tex = _smooth_noise(shape, rng, 10)
+    scalp = (head < 1.0) & (head >= 0.8)
+    brain = head < 0.8
+    cortex = brain & (head >= 0.62 + 0.04 * tex)
+    wm = brain & ~cortex
+    vol[scalp] = 0.35 + 0.05 * tex[scalp]
+    lab[scalp] = 1
+    vol[cortex] = 0.5 + 0.05 * tex[cortex]
+    lab[cortex] = 2
+    vol[wm] = 0.72 + 0.04 * tex[wm]
+    lab[wm] = 3
+    vs = rng.uniform(9, 14)
+    for s_ in (-1, 1):
+        ven = ((x - s_ * 11) / vs) ** 2 + ((y + 2) / (vs * 2.6)) ** 2 + ((z - 10) / (vs * 1.5)) ** 2 < 1
+        vol[ven & brain] = 0.12
+        lab[ven & brain] = 4
+    if lesion:
+        cx, cy, cz = rng.uniform(-30, 30), rng.uniform(-40, 40), rng.uniform(-5, 35)
+        r = rng.uniform(9, 15)
+        les = ((x - cx) ** 2 + (y - cy) ** 2 + (z - cz) ** 2 < r ** 2) & wm
+        vol[les] = 0.97
+        lab[les] = 5
+    vol += 0.03 * rng.standard_normal(shape).astype(np.float32)
+    return vol, lab

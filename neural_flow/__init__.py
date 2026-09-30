@@ -9,7 +9,7 @@ from .outputs import OutputView
 from .raster import Visual, visualize_tensor
 from .tensors import TensorSummary, summarize_tensor
 
-__version__ = "0.1.0"
+__version__ = "0.2.0"
 
 
 def animate_inputs(*args, **kwargs):

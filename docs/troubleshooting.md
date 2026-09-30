@@ -30,8 +30,23 @@ The default axis order is nibabel/MONAI `[X, Y, Z]`. For torch-style slice stack
 use `volume_axes="dhw"`.
 
 **Out of memory on large 3-D models.**
-Lower `max_capture_mb` and `max_spatial_3d`, set `explain=False`, and visualize one ROI-sized
-patch rather than the whole volume.
+Gradient explanations need the most memory (a 96³ UNesT window takes 6–8 GB of RAM on a CPU with
+them). Set `explain=False` (`--no-explain`), lower `max_capture_mb` and `max_spatial_3d`, and trace one
+window (`--crop 96`, or `--sliding-window`, which traces one window and fuses the rest without
+gradients). For many-class models, lower `sw_max_mb` so fused logits are accumulated on a coarser grid.
+
+**A 3-D transformer (UNETR, Swin UNETR, UNesT …) is drawn as one box.**
+The transformer U-Net adapter needs the runtime dataflow (the default `topology="auto"`). Check with
+`neural-flow inspect MODEL -i INPUT`: the adapters line should list `transformer-unet`. If your model
+routes hidden states in an unusual way, choose the stages with `--layers`.
+
+**The whole-volume output card shows only one window.**
+Pass the *whole* volume with `sliding_window=True` and `roi_size`; on the command line use
+`--sliding-window` (it disables the ROI crop). Without it, only the traced window is shown.
+
+**3-D volumes look squashed.**
+Set the voxel spacing (`voxel_spacing=(sx, sy, sz)`); the command line reads it from the NIfTI header
+unless you pass `--no-spacing`.
 
 **MP4 is written as GIF.**
 Install `imageio-ffmpeg` (`pip install -e ".[animation]"`).
@@ -41,4 +56,4 @@ The cinematic style registers the bundled Inter font automatically. The technica
 matplotlib's default font (DejaVu Sans).
 
 **Tests are slow or fail to import torchvision.**
-Install the dev extra: `pip install -e ".[dev]"`. The tests are CPU-only and take about a minute.
+Install the dev extra: `pip install -e ".[dev]"`. The tests are CPU-only and take a few minutes (the MONAI 3-D tests are skipped without `monai`).

@@ -67,21 +67,11 @@ def get_unest(manifest, t1=None):
     bdir = os.path.join(DEST, "monai_bundles")
     os.makedirs(bdir, exist_ok=True)
     target = os.path.join(bdir, bundle)
-    if not os.path.isdir(target):
-        ok = False
-        try:
-            from huggingface_hub import snapshot_download
+    sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+    from neural_flow.zoo import fetch_bundle
 
-            log(f"downloading MONAI bundle {bundle} from Hugging Face …")
-            snapshot_download(repo_id=f"MONAI/{bundle}", local_dir=target)
-            ok = True
-        except Exception as e:
-            log("  huggingface_hub route failed:", repr(e)[:200])
-        if not ok:
-            from monai.bundle import download
-
-            log(f"downloading MONAI bundle {bundle} via monai.bundle.download …")
-            download(name=bundle, bundle_dir=bdir)
+    log(f"fetching MONAI bundle {bundle} (Hugging Face → GitHub sources + NVIDIA weights → monai.bundle) …")
+    fetch_bundle(bundle, dest=target)
     # MNI152 1 mm T1 template (ships inside nilearn — the UNesT bundle expects MNI-registered T1)
     import nibabel as nib
 

@@ -42,8 +42,12 @@ FIGURES = [
     "unet2d_cinematic.png", "unet2d.png", "unet2d_story.png",
     "medical_3d_cinematic.png", "medical_3d.png", "medical_3d_story.png", "medical_3d_projection.png",
     "multihead_cinematic.png", "multihead.png", "multihead_story.png",
+    "medical_3d_cinematic_thick.png",
+    "transformer3d_unetr.png", "transformer3d_unetr_flat.png", "transformer3d_swinunetr.png",
+    "monai_bundle_cinematic.png",
 ]
-MOVIES = ["movie_pan_resnet.mp4", "movie_pan_vit.mp4", "movie_aging.mp4", "movie_cxr_occlusion.mp4"]
+MOVIES = ["movie_pan_resnet.mp4", "movie_pan_vit.mp4", "movie_aging.mp4", "movie_cxr_occlusion.mp4",
+          "movie_sliding_window_unetr.mp4"]
 
 # docs that are not pages on the site (the landing page replaces the docs index)
 SKIP_DOCS = {"README.md"}
